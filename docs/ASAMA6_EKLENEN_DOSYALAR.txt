@@ -1,0 +1,10 @@
+AŞAMA 6 / YALNIZCA YENİ DOSYALAR
+
+06_Asama6_Seyahat_Takvimi_Testleri.ps1
+src/GorevYolluklari.Core/Integration/TravelTimelinePreview2026.cs
+tests/GorevYolluklari.TimelineChecks/GorevYolluklari.TimelineChecks.csproj
+tests/GorevYolluklari.TimelineChecks/Program.cs
+docs/ASAMA6_SEYAHAT_TAKVIMI_VE_M43.md
+docs/ASAMA6_EKLENEN_DOSYALAR.txt
+
+Mevcut 1–5. aşama dosyaları, resmî kaynaklar, kullanıcı verileri ve yedekler değiştirilmez.

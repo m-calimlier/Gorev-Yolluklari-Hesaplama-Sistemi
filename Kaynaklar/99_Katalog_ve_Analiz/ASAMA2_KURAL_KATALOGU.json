@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0-preliminary",
+  "preparedOn": "2026-11-09",
+  "officialLegalTextLocallyVerified": false,
+  "note": "6245 kanununun indirilmiş HTML nüshası yardımcı kopyadır. Resmî PDF henüz doğrulanmadı. Kod, ödemeye esas karar ve bordro oluşturmaz.",
+  "rules": [
+    {"id":"GK-01","basis":"6245 m.3, m.39; MEB-001 ve MEB-002","summary":"Memuriyet mahalli içi/dışı değerlendirme","status":"HUMAN_REVIEW_REQUIRED"},
+    {"id":"GK-02","basis":"6245 m.39","summary":"Aynı gün 13:00 ve 19:00 saatlerine bağlı 1/3 veya 2/3 gündelik ön hesabı","status":"PREVIEW_IMPLEMENTED"},
+    {"id":"GK-03","basis":"6245 m.39","summary":"13:00/19:00 sınır dakikalarında manuel değerlendirme","status":"REVIEW_GUARD_IMPLEMENTED"},
+    {"id":"GK-04","basis":"6245 m.42-43","summary":"Geceleme, yol günleri, aynı yerde 90/180 günlük sınır, istisnalar","status":"NOT_IMPLEMENTED"},
+    {"id":"GK-05","basis":"6245 m.45 a,b,c","summary":"Sürekli görev 20x + aile 10x (40x üst sınır) + %5 x kilometre ön hesabı","status":"PREVIEW_IMPLEMENTED"},
+    {"id":"GK-06","basis":"6245 m.45 son fıkra","summary":"Aynı güzergâhta memur eşin atanması ve kilometre bileşeni","status":"REVIEW_GUARD_IMPLEMENTED"},
+    {"id":"GK-07","basis":"6245 m.44-47, KGM cetvelleri","summary":"Aile gündelik/yol masrafı ve mesafe tespiti","status":"NOT_IMPLEMENTED"},
+    {"id":"GK-08","basis":"8. Dönem Toplu Sözleşme / Hakem Kurulu kararı","summary":"Sözleşmeli personel ve ev eşyası taşıma koşullarının değerlendirilmesi","status":"NOT_IMPLEMENTED"},
+    {"id":"GK-09","basis":"2026 Bütçe Kanunu H Cetveli","summary":"Yıl, unvan, ek gösterge ve kadro derecesinden otomatik tarife","status":"NOT_IMPLEMENTED"},
+    {"id":"GK-10","basis":"Merkezî Yönetim Harcama Belgeleri Yönetmeliği","summary":"Örnek 27/28 belgelendirme, avans, yuvarlama ve onay","status":"NOT_IMPLEMENTED"}
+  ]
+}

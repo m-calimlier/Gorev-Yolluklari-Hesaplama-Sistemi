@@ -1,0 +1,8 @@
+Aşama 5 sadece yeni dosya ekler. Aşama 2, 3, 4 kodları ve proje kaynaklarındaki resmî PDF'ler, JSON kayıtlar, çıktılar ve yedekler DEĞİŞMEZ.
+
+05_Asama5_CokGunlu_Konaklama_Testleri.ps1
+src/GorevYolluklari.Core/Integration/MultiDayDutyPreview2026.cs
+tests/GorevYolluklari.MultiDayChecks/GorevYolluklari.MultiDayChecks.csproj
+tests/GorevYolluklari.MultiDayChecks/Program.cs
+docs/ASAMA5_COK_GUNLU_KONAKLAMA_MEVZUAT.md
+docs/ASAMA5_EKLENEN_DOSYALAR.txt

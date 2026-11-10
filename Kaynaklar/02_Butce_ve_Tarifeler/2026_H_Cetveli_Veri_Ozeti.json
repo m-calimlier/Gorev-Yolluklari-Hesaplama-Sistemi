@@ -1,0 +1,38 @@
+{
+  "tur": "yurtici-gundelik-memur-ve-hizmetli",
+  "yil": 2026,
+  "gecerlilikBaslangici": "2026-01-01",
+  "gecerlilikSonu": "2026-12-31",
+  "kaynakID": "BUT-002",
+  "kaynakURL": "https://www.sbb.gov.tr/wp-content/uploads/2025/12/8-H-Cetveli_2026Butcesi.pdf",
+  "birim": "TRY",
+  "not": "2026 H Cetveli I-B altındaki memur ve hizmetli kategorileri. Üst düzey A kategorisi ile özel statüler dahil değildir. Hesap motoruna bağlantısı henüz yapılmamıştır.",
+  "kategoriler": [
+    {
+      "anahtar": "B_a",
+      "etiket": "Ek gösterge 8000 ve daha yüksek kadrolar",
+      "tutar": 890
+    },
+    {
+      "anahtar": "B_b",
+      "etiket": "Ek gösterge 6400 dahil, 8000 hariç kadrolar",
+      "tutar": 880
+    },
+    {
+      "anahtar": "B_c",
+      "etiket": "Ek gösterge 3600 dahil, 6400 hariç kadrolar",
+      "tutar": 870
+    },
+    {
+      "anahtar": "B_d",
+      "etiket": "Aylık/kadro derecesi 1-4 olanlar",
+      "tutar": 860
+    },
+    {
+      "anahtar": "B_e",
+      "etiket": "Aylık/kadro derecesi 5-15 olanlar",
+      "tutar": 850
+    }
+  ],
+  "uygulamaDurumu": "TASLAK_TARIFE__HESAPLAMAYA_BAGLANMADI"
+}

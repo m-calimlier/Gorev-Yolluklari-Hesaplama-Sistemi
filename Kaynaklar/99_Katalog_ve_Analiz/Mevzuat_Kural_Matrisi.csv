@@ -1,0 +1,13 @@
+﻿KuralID;YollukTuru;Konu;Kaynak;Kosul;HedefDavranis;SinirTesti;Durum
+K-01;Her ikisi;Hak sahipliği;"6245 md.3, 10, 14; MEB-001/MEB-002";Memuriyet mahalli dışında mı?;"Karar verilemiyorsa uyarı ver; otomatik hak atama";Örnek 1: ilçe dışı ama bütünleşik yerleşim;İNCELENECEK
+K-02;Her ikisi;Kişi statüsü;6245 ve MEB-004;Memur/sözleşmeli/diğer statü;Statüye özel hak ve belge gereksinimi;Sözleşmeli görev değişikliği;İNCELENECEK
+K-03;Geçici;Günlük süre;6245 md.39;Gidiş dönüş saatleri;"Kısmi gündelik sınıfları; sınır saatleri";12:59, 13:00, 18:59, 19:00;İNCELENECEK
+K-04;Geçici;Gündelik dönemleri;"6245 md.42; H cetveli";Aynı yerde görev/uzatma;Kümülatif 90/180 gün ve dönem oranı;90-91-180-181. gün;İNCELENECEK
+K-05;Geçici;Konaklama;"6245 md.33(b); 2026 H cetveli";Fatura ve süre;Kademeli oran ve azami koşullar;10/11/90/91. gün;İNCELENECEK
+K-06;Geçici;Yol gideri;"6245 md.14; Harcama Belgeleri md.22/27";Mutat taşıt, bilet, kurum taşıtı;Belge ve sınırlara göre hesap;Kurum aracı ile gidiş;İNCELENECEK
+K-07;Sürekli;Yer değiştirme;"6245 md.45; 8. Dönem Toplu Sözleşme";Atama, aile, eş, km;Sabit/değişken bileşen ve istisna;Aynı kurumda eş birlikte atanıyor;İNCELENECEK
+K-08;Sürekli;Aile gündeliği;"6245; MEB-003";Aile ferdi hak sahipliği;Aile üyesi başına uygun tutar;Eş ve çocuk birlikte seyahat;İNCELENECEK
+K-09;Her ikisi;Gündelik tarife yılı;2026 H cetveli;Görev/ödeme tarihine göre uygulanma;Tarifeyi dönem versiyonuna kilitle;2026/2027 yıl sonu görevi;İNCELENECEK
+K-10;Sürekli;Resmî kilometre;"KGM-001/KGM-002; Harcama Belgeleri md.23";İl/ilçe resmî mesafe;Kaynak, tarih ve elle onay gerekli;Resmî cetvelde bulunmayan yer;İNCELENECEK
+K-11;Her ikisi;Belge üretimi;Harcama Belgeleri md.22-23;Örnek 27 / 28;Şablonlarla uyumlu form ve ek belge kontrolü;Eksik görevlendirme yazısı;İNCELENECEK
+K-12;Her ikisi;Avans ve yuvarlama;"Harcama belgeleri; muhasebe kuralları";Avans mahsubu, vergiler, TL kuruş;Her kalem ve toplam için açıklanabilir iz;Tek kuruş fark ve fazla avans;İNCELENECEK

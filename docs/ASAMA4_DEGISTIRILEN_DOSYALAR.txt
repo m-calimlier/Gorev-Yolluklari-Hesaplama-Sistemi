@@ -1,0 +1,9 @@
+AŞAMA 4: Yalnızca eklenen (yeni) dosyalar:
+- src/GorevYolluklari.Core/Integration/IntegratedPreview.cs
+- tests/GorevYolluklari.IntegrationChecks/GorevYolluklari.IntegrationChecks.csproj
+- tests/GorevYolluklari.IntegrationChecks/Program.cs
+- 04_Asama4_Birlesik_OnHesap_Testleri.ps1
+- docs/ASAMA4_TARIFE_HESAP_ENTEGRASYONU.md
+- docs/ASAMA4_DEGISTIRILEN_DOSYALAR.txt
+
+Mevcut hiçbir proje kodu, kaynak PDF/Excel/JSON, personel kaydı, yedek veya çıktı değiştirilmez.

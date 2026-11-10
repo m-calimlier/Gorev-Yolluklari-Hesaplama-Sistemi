@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>GorevYolluklari</AssemblyName>
+    <RootNamespace>GorevYolluklari.App</RootNamespace>
+    <Version>0.8.0</Version>
+    <Title>Görev Yollukları Hesaplama Sistemi</Title>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GorevYolluklari.Core\GorevYolluklari.Core.csproj" />
+    <ProjectReference Include="..\GorevYolluklari.Storage\GorevYolluklari.Storage.csproj" />
+    <ProjectReference Include="..\GorevYolluklari.Application\GorevYolluklari.Application.csproj" />
+    <ProjectReference Include="..\GorevYolluklari.Documents\GorevYolluklari.Documents.csproj" />
+  </ItemGroup>
+  <ItemGroup><Content Include="../../Kaynaklar/02_Butce_ve_Tarifeler/2026_H_Cetveli_Dogrulanmis_OnHesap.json" Link="Kaynaklar/02_Butce_ve_Tarifeler/2026_H_Cetveli_Dogrulanmis_OnHesap.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+</Project>

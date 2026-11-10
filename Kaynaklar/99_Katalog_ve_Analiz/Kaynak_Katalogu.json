@@ -1,0 +1,202 @@
+[
+  {
+    "id": "KAN-001",
+    "ad": "6245 sayılı Harcırah Kanunu (güncel metne erişim)",
+    "hedefDosya": "01_Mevzuat/6245_Harcirah_Kanunu.pdf",
+    "url": "https://www.mevzuat.gov.tr/MevzuatMetin/1.3.6245.pdf",
+    "tur": "pdf",
+    "oncelik": "resmi-ana",
+    "not": "Mevzuat Bilgi Sistemi; indirme adresi bu oturumda erişim zaman aşımına uğradı, güncellik kontrolü zorunlu",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "KAN-002",
+    "ad": "6245 sayılı Harcırah Kanunu, Bakanlık bilgi sayfası",
+    "hedefDosya": "01_Mevzuat/Saglik_Bakanligi_6245.html",
+    "url": "https://www.saglik.gov.tr/TR,2410/6245-sayili-harcirah-kanunu.html",
+    "tur": "baglanti",
+    "oncelik": "yardimci",
+    "not": "Güncel konsolide metin yerine tek başına esas alınmamalı",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "BUT-001",
+    "ad": "2026 Merkezi Yönetim Bütçe Kanunu",
+    "hedefDosya": "02_Butce_ve_Tarifeler/2026_Butce_Kanunu.pdf",
+    "url": "https://www.sbb.gov.tr/wp-content/uploads/2025/12/1-2026-Yili-Merkezi-Yonetim-Butce-Kanunu.pdf",
+    "tur": "pdf",
+    "oncelik": "resmi-ana",
+    "not": "SBB 2026 bütçe kanunu",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "BUT-002",
+    "ad": "2026 H Cetveli - yurtiçi gündelik ve tazminat",
+    "hedefDosya": "02_Butce_ve_Tarifeler/2026_H_Cetveli.pdf",
+    "url": "https://www.sbb.gov.tr/wp-content/uploads/2025/12/8-H-Cetveli_2026Butcesi.pdf",
+    "tur": "pdf",
+    "oncelik": "resmi-ana",
+    "not": "Bütçe Kanunu eki; sınıflandırma ve istisnalar için 6245 ile birlikte incelenir",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "BUT-003",
+    "ad": "2026-2027 8. Dönem Toplu Sözleşme - Resmi Gazete",
+    "hedefDosya": "02_Butce_ve_Tarifeler/8_Donem_Toplu_Sozlesme_ResmiGazete.pdf",
+    "url": "https://www.resmigazete.gov.tr/eskiler/2025/08/20250827-18.pdf",
+    "tur": "pdf",
+    "oncelik": "resmi-ana",
+    "not": "Resmi Gazete bağlantısı; bu oturumda zaman aşımı görüldü",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "BUT-004",
+    "ad": "8. Dönem Toplu Sözleşme - TBB yedek belge",
+    "hedefDosya": "02_Butce_ve_Tarifeler/8_Donem_Toplu_Sozlesme_TBB.pdf",
+    "url": "https://www.tbb.gov.tr/sites/default/files/attachments/2025-08/8-donem-toplu-sozlesme-rehberi.pdf",
+    "tur": "pdf",
+    "oncelik": "yardimci",
+    "not": "TBB çoğaltımı, resmî karar aslıyla kontrol edilmeli",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "BEL-001",
+    "ad": "Merkezî Yönetim Harcama Belgeleri Yönetmeliği (Örnek 27 ve 28)",
+    "hedefDosya": "03_Belgeler_ve_Sablonlar/Harcama_Belgeleri_Yonetmeligi.pdf",
+    "url": "https://ms.hmb.gov.tr/uploads/2019/01/6.05-MERKEZ%C4%B0-Y%C3%96NET%C4%B0M-HARCAMA-BELGELER%C4%B0-Y%C3%96NETMEL%C4%B0%C4%9E%C4%B0.pdf",
+    "tur": "pdf",
+    "oncelik": "resmi-ana",
+    "not": "HMB yayını; eski derleme olabilir, son değişiklikler kontrol edilmeli",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "BEL-002",
+    "ad": "MYS Yolluk Süreci Kullanım Kılavuzu",
+    "hedefDosya": "03_Belgeler_ve_Sablonlar/MYS_Yolluk_Kilavuzu.html",
+    "url": "https://butunlesik.hmb.gov.tr/mys/kilavuz/yolluk-sureci.html",
+    "tur": "baglanti",
+    "oncelik": "yardimci",
+    "not": "Belge akışında çapraz kontrol için",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "MEB-001",
+    "ad": "MEB 01.10.2026 büyükşehir harcırah görüşü",
+    "hedefDosya": "04_MEB_Gorusleri/2026_Buyuksehir_Harcirah.pdf",
+    "url": "https://sgb.meb.gov.tr/gorusler/buyuksehir.pdf",
+    "tur": "pdf",
+    "oncelik": "resmi-gorus",
+    "not": "Memuriyet mahalli yorumunda kritik; yerleşim bütünlüğü ve kurum taşıtı",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "MEB-002",
+    "ad": "MEB 05.10.2026 geçici görev yolluğu görüşü",
+    "hedefDosya": "04_MEB_Gorusleri/2026_Gecici_Gorev_Yollugu.pdf",
+    "url": "https://sgb.meb.gov.tr/gorusler/gecici.pdf",
+    "tur": "pdf",
+    "oncelik": "resmi-gorus",
+    "not": "Norm fazlası öğretmen görevlendirmeleri; memuriyet mahalli kontrolü",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "MEB-003",
+    "ad": "MEB aile fertleri ve mutat taşıt görüşü",
+    "hedefDosya": "04_MEB_Gorusleri/Aile_Fertleri_Mutat_Tasit.pdf",
+    "url": "https://sgb.meb.gov.tr/gorusler/harc%C4%B1rah.pdf",
+    "tur": "pdf",
+    "oncelik": "resmi-gorus",
+    "not": "Aile ve taşıt hak sahipliği ayrımı",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "MEB-004",
+    "ad": "MEB sözleşmeli personel sürekli görev yolluğu görüşü",
+    "hedefDosya": "04_MEB_Gorusleri/Sozlesmeli_Surekli_Gorev.pdf",
+    "url": "https://sgb.meb.gov.tr/gorusler/sozlesmeli.pdf",
+    "tur": "pdf",
+    "oncelik": "resmi-gorus",
+    "not": "Tarama PDF olabilir; personel statüsü istisnaları",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "MEB-005",
+    "ad": "MEB sürekli görev yolluğu görüşü",
+    "hedefDosya": "04_MEB_Gorusleri/Surekli_Gorev_Yollugu.pdf",
+    "url": "https://sgb.meb.gov.tr/gorusler/26151026_Surekli_Gorev_yolluYu.pdf",
+    "tur": "pdf",
+    "oncelik": "resmi-gorus",
+    "not": "Kurum uygulama değerlendirmesi",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "MEB-006",
+    "ad": "MEB 03.10.2025 sürekli görev yolluğu kim öder görüşü",
+    "hedefDosya": "04_MEB_Gorusleri/2025_Surekli_Gorev_Kim_Oder.pdf",
+    "url": "https://sgb.meb.gov.tr/gorusler/07141045_surekligorevyollugukimtarafindanodenecegi.pdf",
+    "tur": "pdf",
+    "oncelik": "resmi-gorus",
+    "not": "Eski/yeni harcama birimi sorumluluğu",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "MEB-007",
+    "ad": "MEB toplu sözleşme ve ikametgâh durumu görüşü",
+    "hedefDosya": "04_MEB_Gorusleri/Surekli_Gorev_Ikametgah.pdf",
+    "url": "https://sgb.meb.gov.tr/gorusler/26171001_surekligorevyollugutoplusozlesmekapsamindaikametgahdurumu.pdf",
+    "tur": "pdf",
+    "oncelik": "resmi-gorus",
+    "not": "İkametgâh ve toplu sözleşme özel durumu",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "MEB-008",
+    "ad": "MEB mali görüşler listesi",
+    "hedefDosya": "04_MEB_Gorusleri/MEB_Mali_Gorusler.html",
+    "url": "https://sgb.meb.gov.tr/gorusler/gorusler.html",
+    "tur": "baglanti",
+    "oncelik": "resmi-katalog",
+    "not": "Görüşler değişirse tekrar kontrol edilecek",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "KGM-001",
+    "ad": "KGM 2026 iller arası mesafe cetveli",
+    "hedefDosya": "05_KGM_Mesafeler/KGM_Il_Mesafeleri.xlsx",
+    "url": "https://www.kgm.gov.tr/SiteCollectionDocuments/KGMdocuments/Root/Uzakliklar/ilmesafe.xlsx",
+    "tur": "xlsx",
+    "oncelik": "resmi-veri",
+    "not": "KGM sayfasında 03.03.2026 güncellemesi yazıyor",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "KGM-002",
+    "ad": "KGM 2026 ilçeler arası mesafe cetveli",
+    "hedefDosya": "05_KGM_Mesafeler/KGM_Ilce_Mesafeleri.xlsx",
+    "url": "https://www.kgm.gov.tr/SiteCollectionDocuments/KGMdocuments/Root/Uzakliklar/ilcemesafe.xlsx",
+    "tur": "xlsx",
+    "oncelik": "resmi-veri",
+    "not": "KGM ilçe mesafe cetveli",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "KGM-003",
+    "ad": "KGM resmî mesafe sayfası",
+    "hedefDosya": "05_KGM_Mesafeler/KGM_Mesafe_Sayfasi.html",
+    "url": "https://www.kgm.gov.tr/Sayfalar/KGM/SiteTr/Root/Uzakliklar.aspx",
+    "tur": "baglanti",
+    "oncelik": "resmi-katalog",
+    "not": "Mesafeler ve değişiklik tarihleri",
+    "paketteOrijinalBelgeVar": false
+  },
+  {
+    "id": "HMB-001",
+    "ad": "HMB Harcırah Kanunu Genel Tebliğleri listesi",
+    "hedefDosya": "06_Diger_Resmi_Kaynaklar/Harcirah_Genel_Tebligleri.html",
+    "url": "https://kmyd.hmb.gov.tr/hm-tebligler",
+    "tur": "baglanti",
+    "oncelik": "resmi-katalog",
+    "not": "Seri 39, 40, 41 ve daha yeni düzenleme kontrolü; JS gerektirebilir",
+    "paketteOrijinalBelgeVar": false
+  }
+]

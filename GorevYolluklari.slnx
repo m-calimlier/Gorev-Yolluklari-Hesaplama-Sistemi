@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GorevYolluklari.Core/GorevYolluklari.Core.csproj" />
+    <Project Path="src/GorevYolluklari.Application/GorevYolluklari.Application.csproj" />
+    <Project Path="src/GorevYolluklari.Storage/GorevYolluklari.Storage.csproj" />
+    <Project Path="src/GorevYolluklari.Documents/GorevYolluklari.Documents.csproj" />
+    <Project Path="src/GorevYolluklari.App/GorevYolluklari.App.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GorevYolluklari.RuleChecks/GorevYolluklari.RuleChecks.csproj" />
+    <Project Path="tests/GorevYolluklari.TariffChecks/GorevYolluklari.TariffChecks.csproj" />
+    <Project Path="tests/GorevYolluklari.IntegrationChecks/GorevYolluklari.IntegrationChecks.csproj" />
+    <Project Path="tests/GorevYolluklari.MultiDayChecks/GorevYolluklari.MultiDayChecks.csproj" />
+    <Project Path="tests/GorevYolluklari.TimelineChecks/GorevYolluklari.TimelineChecks.csproj" />
+    <Project Path="tests/GorevYolluklari.DocumentChecks/GorevYolluklari.DocumentChecks.csproj" />
+    <Project Path="tests/GorevYolluklari.PdfChecks/GorevYolluklari.PdfChecks.csproj" />
+    <Project Path="tests/GorevYolluklari.WorkflowChecks/GorevYolluklari.WorkflowChecks.csproj" />
+    <Project Path="tests/GorevYolluklari.PdfSafetyChecks/GorevYolluklari.PdfSafetyChecks.csproj" />
+    <Project Path="tests/GorevYolluklari.UiChecks/GorevYolluklari.UiChecks.csproj" />
+  </Folder>
+</Solution>
