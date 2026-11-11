@@ -11,6 +11,7 @@ AppName=Görev Yollukları Hesaplama Sistemi
 AppVersion={#AppVersion}
 VersionInfoVersion={#AppVersion}.0
 AppPublisher=Murat ÇALIMLIER
+AppPublisherURL=https://github.com/m-calimlier/Gorev-Yolluklari-Hesaplama-Sistemi
 DefaultDirName={localappdata}\Programs\Görev Yollukları Hesaplama Sistemi
 DefaultGroupName=Görev Yollukları Hesaplama Sistemi
 PrivilegesRequired=lowest
