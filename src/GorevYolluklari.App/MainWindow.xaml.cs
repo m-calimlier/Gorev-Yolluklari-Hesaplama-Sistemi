@@ -30,6 +30,7 @@ public partial class MainWindow : Window
     private readonly List<FrameworkElement> _editors = [];
     private readonly List<CheckBox> _reviewChecks = [];
     private bool _dirty, _loadFailed;
+    private DraftKind? _selectedModule;
     private static readonly CultureInfo Tr = CultureInfo.GetCultureInfo("tr-TR");
     public MainWindow()
     {
@@ -127,7 +128,8 @@ public partial class MainWindow : Window
         switch (Navigation.SelectedIndex)
         {
             case 0: Home(); break;
-            case 1: case 2: DutyPage(); break;
+            case 1: _selectedModule = DraftKind.TemporaryDuty; TemporaryDutyPage(); break;
+            case 2: _selectedModule = DraftKind.PermanentDuty; PermanentDutyPage(); break;
             case 3: PersonnelPage(); break;
             case 4: DocumentsPage(); break;
             case 5: SourcesPage(); break;
@@ -139,6 +141,11 @@ public partial class MainWindow : Window
         Page.Children.Add(Text("Görev ve kayıt çalışma alanı", 27));
         var c = Card("Kaynaklı ön hesap, kontrollü belge taslağı");
         c.Children.Add(Text("Personel ekleyin, görevi ve kanıtları girin, ön hesabı inceleyin. Bağımsız tutar kontrolünden sonra yalnız kontrol taslağı oluşturulur."));
+        var module = new ComboBox { ItemsSource = new[] { "Geçici görev", "Sürekli görev" }, SelectedIndex = -1 };
+        AutomationProperties.SetName(module, "Hesaplama modülü");
+        c.Children.Add(Text("Veri girişine başlamadan hesaplama modülünü seçin.")); c.Children.Add(module);
+        var open = Button(c, "Seçili modülde veri girişini aç", () => { Navigation.SelectedIndex = module.SelectedIndex + 1; });
+        open.IsEnabled = false; module.SelectionChanged += (_, _) => open.IsEnabled = module.SelectedIndex >= 0;
         var buttons = new WrapPanel(); c.Children.Add(buttons);
         Button(buttons, "Personel ekle", NewPerson); Button(buttons, "Geçici görev", () => { Navigation.SelectedIndex = 1; }); Button(buttons, "Sürekli görev", () => { Navigation.SelectedIndex = 2; });
         c = Card($"{_vm.Personnel.Count} personel · {_vm.Duties.Count} görev");
@@ -189,13 +196,16 @@ public partial class MainWindow : Window
     }
     private void NewDuty(DraftKind kind)
     {
+        if (_selectedModule != kind) throw new InvalidOperationException("Önce hesaplama modülünü seçin.");
         var p = _vm.SelectedPerson ?? _vm.Personnel.FirstOrDefault() ?? throw new InvalidOperationException("Önce personel ekleyin.");
         var d = new DutyRecord { Kind = kind, PersonnelId = p.Id, DocumentNumber = (kind == DraftKind.TemporaryDuty ? "GEC-" : "SUR-") + Guid.NewGuid().ToString("N")[..8] };
         _vm.Duties.Add(d); _vm.SelectedDuty = d; _dirty = true; ShowPage();
     }
-    private void DutyPage()
+    private void TemporaryDutyPage() => DutyPage(DraftKind.TemporaryDuty);
+    private void PermanentDutyPage() => DutyPage(DraftKind.PermanentDuty);
+    private void DutyPage(DraftKind kind)
     {
-        var kind = Navigation.SelectedIndex == 2 ? DraftKind.PermanentDuty : DraftKind.TemporaryDuty;
+        if (_selectedModule != kind) throw new InvalidOperationException("Önce hesaplama modülünü seçin.");
         Page.Children.Add(Text(kind == DraftKind.TemporaryDuty ? "Geçici görev ön hesabı" : "Sürekli görev · yer değiştirme", 27));
         var buttons = new WrapPanel(); Page.Children.Add(buttons); Button(buttons, "Yeni görev", () => NewDuty(kind)); Button(buttons, "Ön hesapla", () => Preview(false)); Button(buttons, "Kaydet", Save);
         if (!SelectDuty(kind)) { Page.Children.Add(Text("Bu türde görev yok. Yeni görev ekleyin.")); return; }
@@ -204,7 +214,16 @@ public partial class MainWindow : Window
         Field(c, "Belge numarası", d, "DocumentNumber");
         var pair = new UniformGrid { Columns = 2 }; c.Children.Add(pair); var left = new StackPanel(); var right = new StackPanel(); pair.Children.Add(left); pair.Children.Add(right);
         Field(left, "Çıkış yeri", d, "Origin"); Field(right, "Varış yeri", d, "Destination");
-        Field(left, "Ayrılış · gg.AA.yyyy SS:dd", d, "Departure", "dd.MM.yyyy HH:mm"); Field(right, "Dönüş · gg.AA.yyyy SS:dd", d, "Return", "dd.MM.yyyy HH:mm");
+        if (kind == DraftKind.TemporaryDuty)
+        {
+            Field(left, "Ayrılış · gg.AA.yyyy SS:dd", d, "Departure", "dd.MM.yyyy HH:mm"); Field(right, "Dönüş · gg.AA.yyyy SS:dd", d, "Return", "dd.MM.yyyy HH:mm");
+        }
+        else
+        {
+            Field(left, "Atama / işlem tarihi · gg.AA.yyyy", d, "Departure", "dd.MM.yyyy");
+            Field(right, "İncelenen dönem bitiş tarihi · gg.AA.yyyy", d, "Return", "dd.MM.yyyy");
+            c.Children.Add(Text("Yalnız yer değiştirme bileşeni hesaplanır. Tarih aralığı seyahat gündeliğine otomatik çevrilmez."));
+        }
         Choice(c, "Memuriyet mahalli değerlendirmesi", Enum.GetValues<DutyStationAssessment>(), d, "Station");
         c = Card("Kanıt ve değerlendirme"); Field(c, "Görev oluru / atama kararı referansı", d, "AssignmentEvidence"); Field(c, "Memuriyet mahalli kanıtı", d, "StationEvidence"); Field(c, "İnceleyen beyanı / kayıt referansı", d, "Reviewer");
         Check(c, "Görev oluru incelendi", d, "AssignmentReviewed"); Check(c, "Mahalliyet incelendi", d, "StationReviewed");
@@ -261,7 +280,9 @@ public partial class MainWindow : Window
     {
         Page.Children.Add(Text("Belge taslakları ve kontrol icmali", 27));
         Page.Children.Add(Text("Tam kuruş satırları bağımsız belgelerden girilir. Ham ön hesap otomatik ödeme tutarına çevrilmez."));
-        if (!SelectDuty()) return; var d = Duty();
+        if (_selectedModule is null) { Page.Children.Add(Text("Önce ana sayfadan Geçici veya Sürekli görev modülünü seçin.")); return; }
+        Page.Children.Add(Text(_selectedModule == DraftKind.TemporaryDuty ? "Geçici görev kayıtları" : "Sürekli görev kayıtları"));
+        if (!SelectDuty(_selectedModule)) return; var d = Duty();
         var buttons = new WrapPanel(); Page.Children.Add(buttons);
         Button(buttons, "Gider satırı ekle", () => { d.Expenses.Add(new() { LineId = "L" + Guid.NewGuid().ToString("N")[..6] }); Invalidate(); ShowPage(); });
         Button(buttons, "TSV yapıştır", () => ImportRows(Exchange.ParseExpenses(Clipboard.GetText())));

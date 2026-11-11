@@ -20,7 +20,7 @@ function dotnet {
 }
 & (Join-Path $root '07_Asama7_Belge_Taslaklari_Testleri.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Asama 2-7 regresyonu basarisiz.' }
-foreach ($check in @('WorkflowChecks','PdfSafetyChecks')) {
+foreach ($check in @('WorkflowChecks','PdfSafetyChecks','ModuleChecks')) {
     & dotnet run --project (Join-Path $root ('tests/GorevYolluklari.' + $check)) --configuration Release -- $root
     if ($LASTEXITCODE -ne 0) { throw "Asama 8 $check basarisiz." }
 }

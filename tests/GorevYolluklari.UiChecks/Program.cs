@@ -26,6 +26,9 @@ internal static class Program
             var window = new MainWindow(); window.Show();
             var navigation = (ListBox)window.FindName("Navigation");
             Check("Yedi gezinme bolumu", navigation.Items.Count == 7);
+            var module = Descendants<ComboBox>(window).Single(x => System.Windows.Automation.AutomationProperties.GetName(x) == "Hesaplama modülü");
+            Check("Baslangicta modul secili degil", module.SelectedIndex == -1);
+            Check("Secim yapilmadan veri girisi acilmaz", !Descendants<Button>(window).Single(x=>Equals(x.Content,"Seçili modülde veri girişini aç")).IsEnabled);
             var demo = Descendants<Button>(window).Single(x => Equals(x.Content, "Sentetik demo kayıtlarını ekle"));
             demo.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Check("Demo gecici gorev ekranini acar", navigation.SelectedIndex == 1);
@@ -55,6 +58,15 @@ internal static class Program
             Check("Guzergah degisince ilgili incelemeler yenilenir", !vm.SelectedDuty.AssignmentReviewed && !vm.SelectedDuty.StationReviewed);
             Descendants<Button>(window).Single(x => Equals(x.Content, "Kaydet")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Check("UI kaydi JSON olusur", File.Exists(Path.Combine(PortablePaths.Data, "kayitlar-v1.json")));
+            Check("Gecici panelde aile mesafe alani yok", !Descendants<TextBox>(window).Any(x=>System.Windows.Automation.AutomationProperties.GetName(x)=="Kaynaklı kilometre"));
+            navigation.SelectedIndex = 2;
+            Descendants<Button>(window).Single(x=>Equals(x.Content,"Yeni görev")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check("Surekli kayit ayri turde",vm.SelectedDuty!.Kind==GorevYolluklari.Core.Documents.DraftKind.PermanentDuty);
+            Check("Surekli panelde mesafe var",Descendants<TextBox>(window).Any(x=>System.Windows.Automation.AutomationProperties.GetName(x)=="Kaynaklı kilometre"));
+            Check("Surekli panelde gecici saat alani yok",!Descendants<TextBox>(window).Any(x=>System.Windows.Automation.AutomationProperties.GetName(x).StartsWith("Ayrılış ·")));
+            Check("Surekli panelde seyahat adayi yok",!Descendants<Button>(window).Any(x=>Equals(x.Content,"Seyahat adaylarını göster")));
+            navigation.SelectedIndex = 1;
+            Check("Module donuste gecici kayit korunur",vm.SelectedDuty!.Kind==GorevYolluklari.Core.Documents.DraftKind.TemporaryDuty);
             window.Hide();
             Console.WriteLine($"TOPLAM: {passed}/{passed} WPF KONTROLU BASARILI; goruntuler: {output}"); return 0;
         }

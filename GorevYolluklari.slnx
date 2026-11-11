@@ -1,5 +1,8 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/GorevYolluklari.Contracts/GorevYolluklari.Contracts.csproj" />
+    <Project Path="src/GorevYolluklari.TemporaryDuty.Core/GorevYolluklari.TemporaryDuty.Core.csproj" />
+    <Project Path="src/GorevYolluklari.PermanentDuty.Core/GorevYolluklari.PermanentDuty.Core.csproj" />
     <Project Path="src/GorevYolluklari.Core/GorevYolluklari.Core.csproj" />
     <Project Path="src/GorevYolluklari.Application/GorevYolluklari.Application.csproj" />
     <Project Path="src/GorevYolluklari.Storage/GorevYolluklari.Storage.csproj" />
@@ -7,6 +10,7 @@
     <Project Path="src/GorevYolluklari.App/GorevYolluklari.App.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/GorevYolluklari.ModuleChecks/GorevYolluklari.ModuleChecks.csproj" />
     <Project Path="tests/GorevYolluklari.RuleChecks/GorevYolluklari.RuleChecks.csproj" />
     <Project Path="tests/GorevYolluklari.TariffChecks/GorevYolluklari.TariffChecks.csproj" />
     <Project Path="tests/GorevYolluklari.IntegrationChecks/GorevYolluklari.IntegrationChecks.csproj" />

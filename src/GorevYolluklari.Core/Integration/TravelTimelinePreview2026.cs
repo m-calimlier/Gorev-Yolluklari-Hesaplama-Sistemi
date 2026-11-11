@@ -57,14 +57,14 @@ public sealed class TravelTimelinePreviewEngine2026
 {
     private const string Legal = "6245 sayılı Kanun m.39, m.42 ve m.43 (seyahat zaman çizelgesi / ön hesap)";
     private const string TariffReference = "BUT-002:2026:I-B";
-    private readonly HarcirahPreviewEngine _sameDayEngine;
+    private readonly TemporaryDutyEngine _sameDayEngine;
     private readonly DailyRateTariff2026 _tariff;
 
     public TravelTimelinePreviewEngine2026(DailyRateTariff2026 tariff)
     {
         ArgumentNullException.ThrowIfNull(tariff);
         _tariff = tariff;
-        _sameDayEngine = new HarcirahPreviewEngine(tariff);
+        _sameDayEngine = new TemporaryDutyEngine(tariff);
     }
 
     public TimelinePreviewResult Preview(TemporaryDutyItinerary2026 request)

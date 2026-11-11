@@ -24,14 +24,13 @@ public sealed class TravelWorkflowService(string tariffPath)
     {
         var tariff = DailyRateTariff2026.FromVerifiedJson(tariffPath);
         var personnel = new PersonnelTariffInput(DateOnly.FromDateTime(duty.Departure), person.Group, person.Grade, person.Indicator);
-        var engine = new HarcirahPreviewEngine(tariff);
         var reviewed = duty.AssignmentReviewed && duty.StationReviewed && !string.IsNullOrWhiteSpace(duty.Reviewer) &&
             !string.IsNullOrWhiteSpace(duty.AssignmentEvidence) && !string.IsNullOrWhiteSpace(duty.StationEvidence);
         if (duty.Return < duty.Departure || duty.Return.Year != 2026 || duty.Departure.Year != 2026)
             return Snapshot(person, duty, "İnceleme gerekli", null, null, null, "Tarih aralığı geçersiz veya 2026 dışında. Geçerli tarife yok.", "2026 H Cetveli");
         if (duty.Kind == DraftKind.PermanentDuty)
         {
-            var r = engine.PreviewRelocation(new(personnel, duty.Station, reviewed, duty.FamilyReviewed,
+            var r = new PermanentDutyEngine(tariff).PreviewRelocation(new(personnel, duty.Station, reviewed, duty.FamilyReviewed,
                 duty.SpouseTransfer, duty.FamilyCount, duty.Kilometers, duty.DistanceEvidence));
             return Snapshot(person, duty, r.Status.ToString(), r.UnroundedAmount, r.DailyRate, r.DailyCategory,
                 "Yalnız yer değiştirme bileşeni; tam sürekli görev toplamı değildir. " + r.Explanation, r.LegalBasis);
@@ -40,7 +39,7 @@ public sealed class TravelWorkflowService(string tariffPath)
             return Snapshot(person, duty, "İnceleme gerekli", null, null, null, "Görev türü geçersiz.", "");
         if (duty.Departure.Date == duty.Return.Date)
         {
-            var r = engine.PreviewSameDay(new(personnel, duty.Departure, duty.Return, duty.Station, reviewed, duty.StationEvidence));
+            var r = new TemporaryDutyEngine(tariff).PreviewSameDay(new(personnel, duty.Departure, duty.Return, duty.Station, reviewed, duty.StationEvidence));
             return Snapshot(person, duty, r.Status.ToString(), r.UnroundedAmount, r.DailyRate, r.DailyCategory, r.Explanation, r.LegalBasis);
         }
         var result = new MultiDayDutyPreviewEngine2026(tariff).Preview(new(personnel, duty.Station,
