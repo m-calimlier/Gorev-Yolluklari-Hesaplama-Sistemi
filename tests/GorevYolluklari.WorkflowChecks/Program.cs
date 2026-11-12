@@ -89,6 +89,26 @@ try
     Check("Bagimsiz toplam uyusmazligi blok", !service.PrepareDraft(person, duty).MayPrintDraft);
     duty.IndependentNet = 850m; person.Grade = 1;
     Check("Personel degisince taslak blok", !service.PrepareDraft(person, duty).MayPrintDraft);
+    // Yeni hesaplama PDF yolunda inceleme yapıldı beyanı, bağımsız brüt ve
+    // bağımsız net toplamları gerekmez; yanlış hesap satırları yine bloke olur.
+    duty = DutyRecord.CreateDemo(person.Id);
+    duty.AssignmentReviewed = false; duty.StationReviewed = false;
+    duty.AssignmentEvidence = ""; duty.StationEvidence = ""; duty.Reviewer = "";
+    var basic = service.PreviewForCalculation(person, duty);
+    Check("Belge kontrolu olmadan ön hesap yapılır", basic.Amount == 850m * 2m / 3m);
+    duty.Expenses.Add(new ExpenseEntry
+    {
+        LineId = "OTO-GD-TEST", Kind = DraftLineKind.DailyAllowance,
+        Description = "Gündelik", Amount = 566.67m, Evidence = "", LegalBasis = "6245 m.39"
+    });
+    duty.Snapshot = service.PreviewForCalculation(person, duty);
+    var direct = service.PrepareCalculationPdf(person, duty);
+    Check("Yolluk PDF'si belge onayi ve tekrar toplam olmadan hazir",
+        direct.MayPrintDraft && direct.Document is { IsCalculationOutput: true } &&
+        !direct.Document.IsOfficialPaymentDocument);
+    duty.Expenses[0].Amount = 600m;
+    duty.Snapshot = service.PreviewForCalculation(person, duty);
+    Check("Yanlis gundelik yazilirsa PDF reddedilir", !service.PrepareCalculationPdf(person, duty).MayPrintDraft);
     var constants = new CalculationConstants
     {
         Temporary = new(MealDivisor: 4),
