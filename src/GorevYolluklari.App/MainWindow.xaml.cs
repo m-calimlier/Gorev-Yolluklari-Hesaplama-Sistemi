@@ -201,6 +201,7 @@ public partial class MainWindow : Window
         _issueTargets.Clear();
         _expenseSummary = null;
         _expenseReviewStatus = null;
+        _entryBoardScroll = null;
         Page.Children.Clear(); _dependentEntryCards.Clear(); _personStatus = null; _taskStart = null; _editors.Clear(); _reviewChecks.Clear(); PageScroll.ScrollToTop();
         switch (Navigation.SelectedIndex)
         {
@@ -342,6 +343,7 @@ public partial class MainWindow : Window
             CheckFormIssues([("Departure", preview.Explanation)]);
         _temporaryPreview = preview;
         ShowPage();
+        FocusResultCard();
         Status.Text = "Hesap hazır. Üçüncü karttan Kaydet ve PDF oluştur düğmesini kullanabilirsiniz.";
     }
 
