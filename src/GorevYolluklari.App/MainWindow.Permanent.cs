@@ -287,7 +287,11 @@ public partial class MainWindow
         var ticket = duty.TravelFarePerPerson ?? 0m;
         var personTicket = ticket;
         var familyTicket = ticket * duty.FamilyCount;
-        var total = relocation + selfTravelDay + familyTravelDay + personTicket + familyTicket;
+        // PDF satırları kuruşa ayrı ayrı yuvarlandığı için ekrandaki toplam da
+        // satır bazında aynı şekilde hesaplanır.
+        var total = TransferAmount(relocation) + TransferAmount(selfTravelDay) +
+            TransferAmount(familyTravelDay) + TransferAmount(personTicket) +
+            TransferAmount(familyTicket);
         result.Children.Add(Metric("Yolluk Hesap Toplamı", Money(total)));
         result.Children.Add(Text("Yer değiştirme gideri · " + Money(relocation), 12));
         foreach (var component in preview.Components ?? [])
