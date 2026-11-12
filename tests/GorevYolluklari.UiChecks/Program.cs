@@ -116,6 +116,17 @@ internal static class Program
                     .All(x => x.ActualHeight >= 42 && x.ActualWidth >= 120));
             SelectTab(0);
             Check("Gecici gorev ekrani acildi", Tabs().SelectedIndex == 1);
+            window.Width = 1700; window.Height = 900; window.UpdateLayout();
+            var tempTitles = new[] { "1 · Kişi", "2 · Görev Ve Güzergâh", "3 · Sonuç" }
+                .Select(title => Descendants<TextBlock>(page).Single(x => x.Text == title))
+                .Select(x => x.TranslatePoint(new Point(), page)).ToArray();
+            Check("Gecici gorev uc karti da ayni satirda",
+                tempTitles[0].X + 150 < tempTitles[1].X &&
+                tempTitles[1].X + 150 < tempTitles[2].X &&
+                Math.Abs(tempTitles[0].Y - tempTitles[1].Y) < 30 &&
+                Math.Abs(tempTitles[1].Y - tempTitles[2].Y) < 30);
+            Capture("Gecici_Uc_Kart_Sade", 1700, 900);
+            window.Width = 1366; window.Height = 768; window.UpdateLayout();
             Check("Yeniden brüt net girisi yok", !Descendants<TextBox>(page).Any(x =>
                 AutomationProperties.GetName(x).StartsWith("Bağımsız")));
             Check("Belge kontrolu kutulari zorunlu ekranin disinda", !Descendants<CheckBox>(page).Any(x =>
