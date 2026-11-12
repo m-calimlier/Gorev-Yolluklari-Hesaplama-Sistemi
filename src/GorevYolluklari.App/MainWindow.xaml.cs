@@ -133,7 +133,7 @@ public partial class MainWindow : Window
     {
         var box = new CheckBox { Content = new TextBlock { Text = label } }; AutomationProperties.SetName(box, label);
         box.SetBinding(ToggleButton.IsCheckedProperty, new Binding(path) { Source = source, Mode = BindingMode.TwoWay });
-        box.Click += (_, _) => { ClearIssue(path); MarkChanged(source); if (source is DutyRecord d) { d.Snapshot = null; d.ReviewedAt = null; if (path != nameof(DutyRecord.AmountsReviewed)) { d.AmountsReviewed = false; foreach (var control in _reviewChecks) control.GetBindingExpression(ToggleButton.IsCheckedProperty)?.UpdateTarget(); } } };
+        box.Click += (_, _) => { ClearIssue(path); MarkChanged(source); if (source is DutyRecord d) { d.Snapshot = null; d.ReviewedAt = null; if (path != nameof(DutyRecord.AmountsReviewed)) { d.AmountsReviewed = false; foreach (var control in _reviewChecks) control.GetBindingExpression(ToggleButton.IsCheckedProperty)?.UpdateTarget(); } if (path is nameof(DutyRecord.FamilyReviewed) or nameof(DutyRecord.AssignmentReviewed) or nameof(DutyRecord.StationReviewed)) InvalidatePermanentResult(); } };
         _reviewChecks.Add(box);
         parent.Children.Add(box);
         RegisterIssue(path, box, parent);
@@ -178,7 +178,17 @@ public partial class MainWindow : Window
             if (property is "OutboundArrival" or "WorkStarts" or "WorkEnds" or "InboundDeparture" or "OutboundEvidence" or "InboundEvidence" or "WorkTimeEvidence") d.WorkTimesReviewed = false;
             if (property is "PriorDays" or "PriorDaysEvidence") d.PriorDaysReviewed = false;
             if (source is ReviewedDayEntry) { d.EligibleDaysReviewed = false; d.LodgingReviewed = false; }
-            if (ReferenceEquals(d, _form)) UpdateExpenseSummary(d);
+            if (ReferenceEquals(d, _form))
+            {
+                UpdateExpenseSummary(d);
+                if (d.Kind == DraftKind.PermanentDuty &&
+                    (source is PersonnelRecord ||
+                     property is "Origin" or "Destination" or "Departure" or "Station" or
+                         "FamilyCount" or "Kilometers" or "DistanceEvidence" or "SpouseTransfer" or
+                         "AssignmentEvidence" or "StationEvidence" or "Reviewer" or
+                         "Grade" or "Indicator" or "Group"))
+                    InvalidatePermanentResult();
+            }
         }
         foreach (var check in _reviewChecks) check.GetBindingExpression(ToggleButton.IsCheckedProperty)?.UpdateTarget();
     }
@@ -217,17 +227,8 @@ public partial class MainWindow : Window
         var permanent = kind == DraftKind.PermanentDuty;
         if (permanent)
         {
-            ShowPermanentProgress();
-            if (_permanentStep == PermanentStep.Person)
-            {
-                BuildPermanentPerson();
-                return;
-            }
-            if (_permanentStep == PermanentStep.Result)
-            {
-                BuildPermanentResult(d);
-                return;
-            }
+            BuildPermanentBoard(d);
+            return;
         }
 
         var first = EntryRow();
@@ -312,12 +313,6 @@ public partial class MainWindow : Window
             Field(c, "Önceki gün sayısı · bilinmiyorsa boş", d, "PriorDays"); Field(c, "Önceki gün defteri kanıtı", d, "PriorDaysEvidence");
             Check(c, "Aynı kişi/yer/iş ve yıllık dönem incelendi", d, "AnnualPeriodReviewed"); Check(c, "Geçmiş gün defteri incelendi", d, "PriorDaysReviewed"); Check(c, "Hak günleri / seyahat incelemesi tamam", d, "EligibleDaysReviewed"); Check(c, "m.42 istisnaları ayrıca değerlendirildi", d, "Article42ExceptionsExcluded"); Check(c, "33(d) konaklama hak sahipliği incelendi", d, "LodgingReviewed");
             var grid = Grid(d.ReviewedDays, true); AddCalendarColumn(grid); Col(grid, "Konaklama sırası", "LodgingOrdinal", 125); Col(grid, "Fatura TL", "LodgingAmount", 110); Col(grid, "Fatura kanıtı", "Receipt", 200); c.Children.Add(grid);
-        }
-        if (permanent)
-        {
-            BuildPermanentAssignmentActions();
-            RefreshEntryAvailability();
-            return;
         }
         var documents = Card("Gider ve belge", Dependent(PageFooter()));
         BuildDocumentFields(d, documents);
