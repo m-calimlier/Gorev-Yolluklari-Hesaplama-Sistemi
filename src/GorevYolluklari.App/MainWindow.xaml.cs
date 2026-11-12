@@ -255,7 +255,8 @@ public partial class MainWindow : Window
             return;
         }
         // Yalnız eski kayıtlar için önceki seyahat takvimi görünümü.
-        var (person, task, result) = BuildThreeCardWorkspace("2 · Görev ve Güzergâh");
+        var (person, task, result) = BuildThreeCardWorkspace(
+            "2 · Görev ve Güzergâh", "1 · Kişi", "3 · Ek Giderler");
         person.Children.Add(Text("Personeli seçin veya yeni kişi oluşturun. Kayıtlı kişiyi tekrar yazmanız gerekmez.", 12));
         BuildEntryPersonnel(person);
         Button(person, "Vazgeç", CancelEntry).HorizontalAlignment = HorizontalAlignment.Left;
@@ -314,32 +315,8 @@ public partial class MainWindow : Window
         RefreshMultiDay();
         Button(guarded, "Hesapla", PreviewTemporary);
 
-        _temporaryResultHint = Text(_temporaryPreview?.Amount is null
-            ? "Görev ve tarih bilgilerini girip Hesapla düğmesine basın."
-            : "Girilen verilere göre hesaplanan yolluk:", 12);
-        _temporaryResultHint.Style = (Style)FindResource("HakedisCardSubtitle");
-        _temporaryResultHint.Margin = new(0);
-        var temporaryInfo = new Border
-        {
-            Style = (Style)FindResource("HakedisInfoCard"),
-            Child = _temporaryResultHint
-        };
-        temporaryInfo.SetBinding(UIElement.VisibilityProperty,
-            new Binding(nameof(UIElement.Visibility)) { Source = _temporaryResultHint });
-        result.Children.Add(temporaryInfo);
-        var calculated = new StackPanel();
-        _temporaryResultContent = calculated;
-        result.Children.Add(calculated);
-        if (_temporaryPreview is { Amount: decimal amount } preview)
-        {
-            calculated.Children.Add(Metric("Görev tutarı", Money(amount)));
-            calculated.Children.Add(Text("Tarife gündeliği " + Money(preview.DailyRate), 12));
-            foreach (var part in preview.Components ?? [])
-                calculated.Children.Add(Text($"{part.Label} · {Money(part.Amount)}", 12));
-            calculated.Children.Add(Text("Kaydettiğinizde gündelik gideri otomatik aktarılır.", 12));
-        }
-        else calculated.Visibility = Visibility.Collapsed;
-
+        result.Children.Add(Text(
+            "Eski görev kayıtları için yalnız ek hesap girdileri. Sonuç Hesapla panelinde açılır.", 12));
         var extras = Dependent(new StackPanel());
         var optional = new Expander
         {
@@ -351,40 +328,10 @@ public partial class MainWindow : Window
         };
         result.Children.Add(optional);
         BuildDocumentFields(d, extras);
-        var save = Button(result, "Kaydet", SaveEntry);
-        var pdf = Button(result, "Kaydet ve PDF oluştur", SaveAndMakePdf);
-        _dependentEntryCards.Add(save);
-        _dependentEntryCards.Add(pdf);
         RefreshEntryAvailability();
     }
 
-    private void PreviewTemporary()
-    {
-        if (_form is { QuickTemporaryEnabled: true } quick)
-        {
-            SetQuickTemporaryDefaults(quick);
-            CheckFormIssues(DutyIssues(quick, _formPerson!, includeExpenses: false));
-            var calculation = Service.PreviewForCalculation(_formPerson!, quick);
-            if (calculation.Amount is null)
-                CheckFormIssues([("QuickWorkDays", calculation.Explanation)]);
-            _temporaryPreview = calculation;
-            ShowPage();
-            FocusResultCard();
-            Status.Text = "Kısa geçici görev hesabı hazır. PDF oluşturabilirsiniz.";
-            return;
-        }
-        if (!PersonIsReady) SaveEntryPerson();
-        if (!PersonIsReady) throw new InvalidOperationException("Kişi bilgilerini tamamlayın.");
-        var duty = Duty();
-        CheckFormIssues(DutyIssues(duty, _formPerson!, includeExpenses: false));
-        var preview = Service.PreviewForCalculation(_formPerson!, duty);
-        if (preview.Amount is null)
-            CheckFormIssues([("Departure", preview.Explanation)]);
-        _temporaryPreview = preview;
-        ShowPage();
-        FocusResultCard();
-        Status.Text = "Hesap hazır. Üçüncü karttan Kaydet ve PDF oluştur düğmesini kullanabilirsiniz.";
-    }
+    private void PreviewTemporary() => CalculateToResults();
 
     private void InvalidateTemporaryResult()
     {
