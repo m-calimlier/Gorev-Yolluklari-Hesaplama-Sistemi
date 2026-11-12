@@ -124,10 +124,11 @@ public static class DraftDocumentService
         // Giriş listesini kopyalayarak taslağı daha sonraki değişikliklerden koruruz.
         var rows = Array.AsReadOnly(request.Lines.ToArray());
         var document = new DraftDocument(request.Kind, request.DocumentNumber,
-            request.PersonnelFullName.Trim(), request.PersonnelTitle.Trim(), request.Institution.Trim(),
+            request.PersonnelFullName.Trim(), (request.PersonnelTitle ?? "").Trim(),
+            (request.Institution ?? "").Trim(),
             request.Origin.Trim(), request.Destination.Trim(), request.Begins, request.Ends,
             request.BudgetYear, request.TariffReference, request.RuleVersion.Trim(),
-            request.AssignmentEvidence.Trim(), request.StationEvidence.Trim(),
+            (request.AssignmentEvidence ?? "").Trim(), (request.StationEvidence ?? "").Trim(),
             rows, gross, request.AdvanceTry, gross - request.AdvanceTry)
             { IsCalculationOutput = !requireReview };
         return new(DraftDecisionStatus.DraftReady,
