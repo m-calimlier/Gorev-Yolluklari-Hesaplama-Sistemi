@@ -222,18 +222,25 @@ public partial class MainWindow
             picker.SelectedItem = oldChoice;
             restoring = false;
         };
-        var fields = new UniformGrid { Columns = _form?.Kind == DraftKind.PermanentDuty ? 1 : 2 };
+        var fields = new StackPanel();
         card.Children.Add(fields);
-        var identity = new StackPanel();
-        var tariff = new StackPanel();
-        fields.Children.Add(identity);
-        fields.Children.Add(tariff);
-        Field(identity, "Ad soyad", person, nameof(person.FullName));
-        Field(identity, "Unvan", person, nameof(person.Title));
-        Field(identity, "Kurum", person, nameof(person.Institution));
-        Choice(tariff, "Statü", Enum.GetValues<PersonnelTariffGroup>(), person, nameof(person.Group));
-        Choice(tariff, "Derece", Enumerable.Range(1, 15), person, nameof(person.Grade));
-        Field(tariff, "Ek gösterge", person, nameof(person.Indicator));
+        Field(fields, "Ad soyad", person, nameof(person.FullName));
+        Choice(fields, "Statü", Enum.GetValues<PersonnelTariffGroup>(), person, nameof(person.Group));
+        Choice(fields, "Derece", Enumerable.Range(1, 15), person, nameof(person.Grade));
+        Field(fields, "Ek gösterge", person, nameof(person.Indicator));
+        var optionalPerson = new StackPanel();
+        card.Children.Add(new Expander
+        {
+            Header = "İsteğe bağlı: unvan ve kurum",
+            Content = optionalPerson,
+            IsExpanded = !string.IsNullOrWhiteSpace(person.Title) ||
+                         !string.IsNullOrWhiteSpace(person.Institution),
+            Margin = new(0, 8, 0, 6),
+            Foreground = (Brush)FindResource("Gold")
+        });
+        Field(optionalPerson, "Unvan", person, nameof(person.Title));
+        Field(optionalPerson, "Kurum", person, nameof(person.Institution));
+        card.Children.Add(Text("Bilgiler Hesapla veya PDF aşamasında otomatik kaydedilir.", 12));
         Button(card, "Kişiyi kaydet", SaveEntryPerson);
         _personStatus = Text("", 12);
         card.Children.Add(_personStatus);
@@ -314,7 +321,8 @@ public partial class MainWindow
 
     private void SaveEntryCore(bool notify)
     {
-        if (!PersonIsReady) throw new InvalidOperationException("Önce kişi bilgilerini kaydedin.");
+        if (!PersonIsReady) SaveEntryPerson();
+        if (!PersonIsReady) throw new InvalidOperationException("Kişi bilgilerini tamamlayın.");
         var person = _formPerson!;
         var candidate = Copy(Duty());
         if (_formPersonBaseline is not null &&
