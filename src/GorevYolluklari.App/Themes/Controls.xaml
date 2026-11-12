@@ -47,10 +47,15 @@
   </Style.Triggers>
  </Style>
  <Style x:Key="DutyTabs" TargetType="TabControl">
+  <Setter Property="HorizontalAlignment" Value="Left"/>
+  <Setter Property="SnapsToDevicePixels" Value="True"/>
   <Setter Property="Template">
    <Setter.Value>
     <ControlTemplate TargetType="TabControl">
-     <TabPanel IsItemsHost="True" KeyboardNavigation.TabNavigation="Once"/>
+     <Border Background="Transparent" Padding="3,4,3,7" SnapsToDevicePixels="True">
+      <TabPanel IsItemsHost="True" KeyboardNavigation.TabNavigation="Once"
+                VerticalAlignment="Center" HorizontalAlignment="Left"/>
+     </Border>
     </ControlTemplate>
    </Setter.Value>
   </Setter>
@@ -58,13 +63,18 @@
  <Style x:Key="DutyTab" TargetType="TabItem">
   <Setter Property="Foreground" Value="#E8EFFA"/>
   <Setter Property="FontWeight" Value="SemiBold"/>
-  <Setter Property="Margin" Value="0,0,8,0"/>
+  <Setter Property="Margin" Value="0,0,10,0"/>
+  <Setter Property="MinHeight" Value="46"/>
+  <Setter Property="MinWidth" Value="124"/>
+  <Setter Property="SnapsToDevicePixels" Value="True"/>
   <Setter Property="Template">
    <Setter.Value>
     <ControlTemplate TargetType="TabItem">
-     <Border x:Name="TabTile" Background="{StaticResource Card}" BorderBrush="#35546F" BorderThickness="1"
-             CornerRadius="8" Padding="16,9">
-      <ContentPresenter ContentSource="Header"/>
+     <Border x:Name="TabTile" Background="{StaticResource Card}" BorderBrush="#35546F"
+             BorderThickness="1" CornerRadius="8" Padding="18,11" MinHeight="44"
+             SnapsToDevicePixels="True">
+      <ContentPresenter ContentSource="Header" RecognizesAccessKey="True"
+                        VerticalAlignment="Center" HorizontalAlignment="Center"/>
      </Border>
      <ControlTemplate.Triggers>
       <Trigger Property="IsMouseOver" Value="True">
@@ -72,6 +82,7 @@
       </Trigger>
       <Trigger Property="IsSelected" Value="True">
        <Setter TargetName="TabTile" Property="Background" Value="{StaticResource Gold}"/>
+       <Setter TargetName="TabTile" Property="BorderBrush" Value="#F1D783"/>
        <Setter Property="Foreground" Value="{StaticResource Navy}"/>
       </Trigger>
       <Trigger Property="IsKeyboardFocused" Value="True">
