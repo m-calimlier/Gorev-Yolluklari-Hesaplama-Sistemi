@@ -38,7 +38,20 @@ public static class TravelDraftPdfWriter
         using var pdf = new PdfDocument();
         pdf.Info.Title = $"{(document.IsCalculationOutput ? "YOLLUK HESAPLAMA ÇIKTISI" : "KONTROL TASLAĞI")} - {document.RequiredFormCode}";
         pdf.Info.Subject = "Yolluk hesabıdır; resmi onay belgesi değildir";
-        pdf.Info.Creator = "Görev Yollukları Hesaplama Sistemi - Taslak Modülü";
+        pdf.Info.Creator = "Görev Yollukları Hesaplama Cetveli - Created by Murat ÇALIMLIER";
+        // Hesaplama çıktıları için gerçek Örnek 27/28'e benzeyen bağımsız
+        // A4 yatay cetvel. Eski kontrol taslakları ve çok satırlı belgeler
+        // geriye dönük uyumluluk için mevcut yazıcıyla basılmaya devam eder.
+        if (YollukFormPdfRenderer.Supports(document))
+        {
+            var formPage = pdf.AddPage();
+            formPage.Size = PageSize.A4;
+            formPage.Orientation = PageOrientation.Landscape;
+            using (var g = XGraphics.FromPdfPage(formPage))
+                YollukFormPdfRenderer.Render(g, formPage.Width.Point, formPage.Height.Point, document);
+            AtomicSave(pdf, destinationPath);
+            return;
+        }
         int pageCount = (document.Lines.Count + LinesPerPage - 1) / LinesPerPage;
         for (int pageNo = 0; pageNo < pageCount; pageNo++)
         {
