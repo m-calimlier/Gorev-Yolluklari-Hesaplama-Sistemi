@@ -77,7 +77,8 @@ public sealed class TravelWorkflowService(string tariffPath, CalculationConstant
                 components = [
                     new("Kişi sabit unsuru", _constants.Permanent.Self(rate)),
                     new("Aile sabit unsuru", _constants.Permanent.Family(rate, duty.FamilyCount)),
-                    new("Mesafeye bağlı unsur", _constants.Permanent.Distance(rate, duty.Kilometers))
+                    new("Mesafeye bağlı unsur", _constants.Permanent.Distance(rate, duty.Kilometers) *
+                        (duty.SpouseTransfer ? 0.5m : 1m))
                 ];
             return Snapshot(person, duty, r.Status.ToString(), r.UnroundedAmount, r.DailyRate, r.DailyCategory,
                 "Yalnız yer değiştirme bileşeni; tam sürekli görev toplamı değildir. " + r.Explanation, r.LegalBasis, components);
