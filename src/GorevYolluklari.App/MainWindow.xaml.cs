@@ -54,6 +54,15 @@ public partial class MainWindow : Window
         try { _vm.Load(_repository.Load()); }
         catch (Exception ex) { _loadFailed = true; Status.Text = "Kayıt açılamadı. Kaydetme kapalı; Yedekleme bölümünden kurtarın. " + ex.Message; }
         Navigation.ItemsSource = new[] { "Ana Sayfa", "Veri Girişi", "Hesapla", "Sabitler", "Yedekleme / Ayarlar", "Kaynaklar" };
+        // Mevcut sayfa indekslerini/kayıtları koru; günlük bildirim akışında yalnız ilgili sekmeleri göster.
+        var navigationStyle = new Style(typeof(ListBoxItem), (Style)FindResource("WorkspaceNavigationItem"));
+        foreach (var hiddenPage in new[] { "Ana Sayfa", "Sabitler", "Kaynaklar" })
+        {
+            var hidden = new DataTrigger { Binding = new Binding(), Value = hiddenPage };
+            hidden.Setters.Add(new Setter(UIElement.VisibilityProperty, Visibility.Collapsed));
+            navigationStyle.Triggers.Add(hidden);
+        }
+        Navigation.ItemContainerStyle = navigationStyle;
         Navigation.SelectionChanged += (_, _) => Navigate();
         Navigation.SelectedIndex = Environment.GetCommandLineArgs().Contains("--sonuclar", StringComparer.Ordinal) ? 2 : 1;
         CommandBindings.Add(new CommandBinding(ApplicationCommands.Save, (_, _) => Safe(SaveCurrent)));
@@ -80,29 +89,36 @@ public partial class MainWindow : Window
     private StackPanel Card(string title, Panel? parent = null)
     {
         var content = new StackPanel();
-        var heading = Text(title, 20);
-        heading.Foreground = (Brush)FindResource("Gold");
-        heading.FontWeight = FontWeights.SemiBold;
+        var heading = new TextBlock { Text = Heading(title), Style = (Style)FindResource("HakedisCardTitle") };
         content.Children.Add(heading);
-        (parent ?? Page).Children.Add(new Border { Style = (Style)FindResource("WorkspaceCard"), Child = content });
+        (parent ?? Page).Children.Add(new Border { Style = (Style)FindResource("HakedisWorkspaceCard"), Child = content });
         return content;
     }
     private Border Metric(string caption, string amount)
     {
-        var value = new TextBlock { Text = amount, FontSize = 24, FontWeight = FontWeights.SemiBold,
-            Foreground = (Brush)FindResource("Gold") };
+        var value = new TextBlock { Text = amount, FontSize = 26, FontWeight = FontWeights.Bold,
+            Foreground = (Brush)FindResource("HakedisGoldBrush"), Margin = new(0, 6, 0, 0) };
         var content = new StackPanel();
-        content.Children.Add(new TextBlock { Text = Heading(caption), Foreground = Brushes.LightSteelBlue });
+        content.Children.Add(new TextBlock { Text = Heading(caption), Style = (Style)FindResource("HakedisCardSubtitle") });
         content.Children.Add(value);
-        return new Border { Style = (Style)FindResource("OverviewMetric"), Child = content };
+        return new Border { Style = (Style)FindResource("HakedisMetricCard"), Child = content };
     }
     private Button Button(Panel parent, string label, Action action)
     {
-        var b = new Button { Content = label }; AutomationProperties.SetName(b, label); b.Click += (_, _) => Safe(action); parent.Children.Add(b); return b;
+        var important = label.Contains("PDF", StringComparison.OrdinalIgnoreCase) ||
+            label is "Hesapla" or "Sonucu hesapla" or "Kaydet";
+        var b = new Button { Content = label, Style = (Style)FindResource(important ?
+            "HakedisPrimaryAction" : "HakedisSecondaryAction") };
+        if (label == "Kaydet") b.Style = (Style)FindResource("HakedisSecondaryAction");
+        AutomationProperties.SetName(b, label);
+        b.Click += (_, _) => Safe(action);
+        parent.Children.Add(b);
+        return b;
     }
     private TextBox Field(Panel parent, string label, object source, string path, string? format = null)
     {
-        var box = new TextBox(); AutomationProperties.SetName(box, label);
+        var box = new TextBox { Style = (Style)FindResource("HakedisFieldText") };
+        AutomationProperties.SetName(box, label);
         var binding = new Binding(path) { Source = source, Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.LostFocus, ValidatesOnExceptions = true, NotifyOnSourceUpdated = true, ConverterCulture = Tr, StringFormat = format };
         if (source.GetType().GetProperty(path)!.PropertyType == typeof(DateTime?))
         {
@@ -114,7 +130,8 @@ public partial class MainWindow : Window
         var previous = property.GetValue(source);
         var key = source is ExpenseEntry expense ? ExpenseKey(expense, path) : path;
         box.SourceUpdated += (_, _) => { var current = property.GetValue(source); if (!Equals(previous, current)) { previous = current; Invalidate(source, key); } };
-        parent.Children.Add(new Label { Content = new TextBlock { Text = Heading(label) }, Target = box });
+        parent.Children.Add(new Label { Content = new TextBlock { Text = Heading(label) },
+            Target = box, Style = (Style)FindResource("HakedisFieldLabel") });
         parent.Children.Add(box);
         RegisterIssue(key, box, parent);
         _editors.Add(box);
@@ -124,14 +141,17 @@ public partial class MainWindow : Window
     {
         var box = new CheckBox { Content = new TextBlock { Text = label } }; AutomationProperties.SetName(box, label);
         box.SetBinding(ToggleButton.IsCheckedProperty, new Binding(path) { Source = source, Mode = BindingMode.TwoWay });
-        box.Click += (_, _) => { ClearIssue(path); MarkChanged(source); if (source is DutyRecord d) { d.Snapshot = null; d.ReviewedAt = null; if (path != nameof(DutyRecord.AmountsReviewed)) { d.AmountsReviewed = false; foreach (var control in _reviewChecks) control.GetBindingExpression(ToggleButton.IsCheckedProperty)?.UpdateTarget(); } } };
+        box.Click += (_, _) => { ClearIssue(path); MarkChanged(source); if (source is DutyRecord d) { d.Snapshot = null; d.ReviewedAt = null; if (path != nameof(DutyRecord.AmountsReviewed)) { d.AmountsReviewed = false; foreach (var control in _reviewChecks) control.GetBindingExpression(ToggleButton.IsCheckedProperty)?.UpdateTarget(); } if (path is nameof(DutyRecord.FamilyReviewed) or nameof(DutyRecord.AssignmentReviewed) or nameof(DutyRecord.StationReviewed)) InvalidatePermanentResult(); } };
         _reviewChecks.Add(box);
         parent.Children.Add(box);
         RegisterIssue(path, box, parent);
     }
     private ComboBox Choice(Panel parent, string label, System.Collections.IEnumerable items, object source, string path)
     {
-        var combo = new ComboBox { ItemsSource = items is Option[] labels ? labels : Options(items), DisplayMemberPath = "Label", SelectedValuePath = "Value" }; AutomationProperties.SetName(combo, label);
+        var combo = new ComboBox { ItemsSource = items is Option[] labels ? labels : Options(items),
+            DisplayMemberPath = "Label", SelectedValuePath = "Value",
+            Style = (Style)FindResource("HakedisFieldCombo") };
+        AutomationProperties.SetName(combo, label);
         combo.SetBinding(Selector.SelectedValueProperty, new Binding(path) { Source = source, Mode = BindingMode.TwoWay, NotifyOnSourceUpdated = true });
         var property = source.GetType().GetProperty(path)!;
         var previous = property.GetValue(source);
@@ -140,13 +160,25 @@ public partial class MainWindow : Window
         {
             var current = property.GetValue(source);
             if (!Equals(previous, current)) { previous = current; Invalidate(source, key); }
-        }; parent.Children.Add(new Label { Content = new TextBlock { Text = label } }); parent.Children.Add(combo); RegisterIssue(key, combo, parent); return combo;
+        }; parent.Children.Add(new Label { Content = new TextBlock { Text = label },
+            Style = (Style)FindResource("HakedisFieldLabel") }); parent.Children.Add(combo); RegisterIssue(key, combo, parent); return combo;
     }
     private void Invalidate(object? source = null, string? property = null)
     {
         if (property is not null) ClearIssue(property);
+        // Sonuçtan yan menüyle geri dönüp bir alan değiştirildiğinde,
+        // kaydedilmemiş eski hesabın yanlışlıkla yeniden gösterilmesini engelle.
+        if (_pendingDuty is not null && (ReferenceEquals(source, _form) ||
+            ReferenceEquals(source, _formPerson) || source is ReviewedDayEntry or ExpenseEntry))
+        {
+            _pendingDuty = null;
+            _pendingPerson = null;
+        }
         MarkChanged(source);
         if (source is PersonnelRecord && ReferenceEquals(source, _formPerson)) RefreshEntryAvailability();
+        if (_form?.Kind == DraftKind.TemporaryDuty && (source is PersonnelRecord || source is DutyRecord ||
+            source is ReviewedDayEntry || source is ExpenseEntry))
+            InvalidateTemporaryResult();
         IEnumerable<DutyRecord> affected = source switch {
             PersonnelRecord person when ReferenceEquals(person, _formPerson) && _form is not null => new[] { _form },
             PersonnelRecord person => _vm.Duties.Where(x => x.PersonnelId == person.Id),
@@ -169,7 +201,17 @@ public partial class MainWindow : Window
             if (property is "OutboundArrival" or "WorkStarts" or "WorkEnds" or "InboundDeparture" or "OutboundEvidence" or "InboundEvidence" or "WorkTimeEvidence") d.WorkTimesReviewed = false;
             if (property is "PriorDays" or "PriorDaysEvidence") d.PriorDaysReviewed = false;
             if (source is ReviewedDayEntry) { d.EligibleDaysReviewed = false; d.LodgingReviewed = false; }
-            if (ReferenceEquals(d, _form)) UpdateExpenseSummary(d);
+            if (ReferenceEquals(d, _form))
+            {
+                UpdateExpenseSummary(d);
+                if (d.Kind == DraftKind.PermanentDuty &&
+                    (source is PersonnelRecord ||
+                     property is "Origin" or "Destination" or "Departure" or "Station" or
+                         "FamilyCount" or "Kilometers" or "DistanceEvidence" or "SpouseTransfer" or
+                         "AssignmentEvidence" or "StationEvidence" or "Reviewer" or
+                         "Grade" or "Indicator" or "Group"))
+                    InvalidatePermanentResult();
+            }
         }
         foreach (var check in _reviewChecks) check.GetBindingExpression(ToggleButton.IsCheckedProperty)?.UpdateTarget();
     }
@@ -178,7 +220,7 @@ public partial class MainWindow : Window
         CancelDistance();
         _issueTargets.Clear();
         _expenseSummary = null;
-        _expenseReviewStatus = null;
+        _entryBoardScroll = null;
         Page.Children.Clear(); _dependentEntryCards.Clear(); _personStatus = null; _taskStart = null; _editors.Clear(); _reviewChecks.Clear(); PageScroll.ScrollToTop();
         switch (Navigation.SelectedIndex)
         {
@@ -194,7 +236,8 @@ public partial class MainWindow : Window
 
     private DataGrid Grid(System.Collections.IEnumerable items, bool add)
     {
-        var grid = new DataGrid { ItemsSource = items, Height = 260, CanUserAddRows = add, Margin = new(0, 8, 0, 16) };
+        var grid = new DataGrid { ItemsSource = items, Height = 260, CanUserAddRows = add,
+            Style = (Style)FindResource("HakedisDataGrid"), Margin = new(0, 8, 0, 16) };
         grid.CellEditEnding += (_, e) => Invalidate(e.Row.Item); _editors.Add(grid); return grid;
     }
     private static void Col(DataGrid grid, string header, string path, double width, string? format = null) => grid.Columns.Add(new DataGridTextColumn {
@@ -202,118 +245,110 @@ public partial class MainWindow : Window
     private PersonnelRecord Person(DutyRecord d) => _vm.Personnel.FirstOrDefault(p => p.Id == d.PersonnelId) ?? throw new InvalidOperationException("Göreve ait personel bulunamadı.");
     private DutyRecord Duty() => _form ?? throw new InvalidOperationException("Görev formu açık değil.");
 
+    // Ortak üç kartlı yerleşim: Geçici Görev de tek ekranda sonuç ve PDF üretir.
+    private CalculationSnapshot? _temporaryPreview;
+    private FrameworkElement? _temporaryResultContent;
+    private TextBlock? _temporaryResultHint;
+
     private void DutyPage(DutyRecord d)
     {
-        var kind = d.Kind;
-        var permanent = kind == DraftKind.PermanentDuty;
-        if (permanent)
+        if (d.Kind == DraftKind.PermanentDuty)
         {
-            ShowPermanentProgress();
-            if (_permanentStep == PermanentStep.Person)
-            {
-                BuildPermanentPerson();
-                return;
-            }
-            if (_permanentStep == PermanentStep.Result)
-            {
-                BuildPermanentResult(d);
-                return;
-            }
-        }
-
-        var first = EntryRow();
-        if (!permanent) BuildEntryPersonnel(Card("1 · Personel", first.Left));
-        var c = Card(permanent ? "Atama ve güzergâh" : "2 · Görev bilgileri", Dependent(permanent ? first.Left : first.Right));
-        Field(c, "Belge numarası", d, "DocumentNumber");
-        _taskStart = _editors.Last();
-        c.Children.Add(Text("Programın ürettiği kayıt kodu. Görev oluru veya atama kararının numarası kanıt bölümüne yazılır.", 12));
-        var pair = new UniformGrid { Columns = 2 }; c.Children.Add(pair); var left = new StackPanel(); var right = new StackPanel(); pair.Children.Add(left); pair.Children.Add(right);
-        AddRoute(left, right, d);
-        Expander? multiDayReview = null;
-        void RefreshMultiDayReview()
-        {
-            if (multiDayReview is null) return;
-            var multiDay = d.Departure != default && d.Return.Date > d.Departure.Date;
-            multiDayReview.Visibility = multiDay ? Visibility.Visible : Visibility.Collapsed;
-        }
-        if (kind == DraftKind.TemporaryDuty)
-        {
-            DateField(left, "Ayrılış tarihi", d, nameof(d.Departure), changed: RefreshMultiDayReview);
-            DateField(right, "Dönüş tarihi", d, nameof(d.Return), changed: RefreshMultiDayReview);
-        }
-        else
-        {
-            DateField(c, "Atama / işlem tarihi", d, nameof(d.Departure), withTime: false);
-        }
-        Choice(c, "Memuriyet mahalli değerlendirmesi", Enum.GetValues<DutyStationAssessment>(), d, "Station");
-        if (kind == DraftKind.PermanentDuty)
-        {
-            c.Children.Add(Text("Aile ve kaynaklı mesafe", 20));
-            Field(c, "Hak sahibi aile ferdi sayısı (personel hariç)", d, "FamilyCount");
-            c.Children.Add(Text("Hak sahipliği doğrulanan aile fertlerini sayın. Örneğin hak sahibi eş ve iki çocuk için 3 girin.", 12));
-            Field(c, "Kaynaklı kilometre", d, "Kilometers");
-            Field(c, "KGM / mesafe kanıtı", d, "DistanceEvidence");
-            Button(c, "KGM mesafesini sorgula", () => _ = FillDistanceAsync(d));
-            Check(c, "Aile hak sahipliği incelendi", d, "FamilyReviewed"); Choice(c, "Eşin aynı güzergâhta memur olarak nakli",
-                new Option[] { new(false, "Yok"), new(true, "Var · ayrı inceleme") }, d, "SpouseTransfer");
-        }
-        c = Card(permanent ? "Kanıt ve değerlendirme" : "3 · Kanıt ve değerlendirme", Dependent(permanent ? first.Right : first.Left));
-        c.Children.Add(Text("Belge numarası, tarih veya kurumunuzdaki kayıt referansını yazın. Kutuları incelemeyi tamamladıktan sonra işaretleyin.", 12));
-        Field(c, "Görev oluru / atama kararı referansı", d, "AssignmentEvidence");
-        c.Children.Add(Text(kind == DraftKind.PermanentDuty ? "Atama kararının tarih ve sayısı. Örnek: 15.06.2026 / AT-001." : "Görevlendirme olurunun tarih ve sayısı.", 12));
-        Field(c, "Memuriyet mahalli kanıtı", d, "StationEvidence");
-        c.Children.Add(Text("Eski ve yeni görev yerlerinin değerlendirilmesine dayanak olan kurum yazısı veya kayıt referansı.", 12));
-        Field(c, "İnceleyen beyanı / kayıt referansı", d, "Reviewer");
-        c.Children.Add(Text("Kontrolü yapan görevlinin kurum içi inceleme referansı. Örnek: İNCELEME-001.", 12));
-        Check(c, "Görev oluru incelendi", d, "AssignmentReviewed");
-        Check(c, "Mahalliyet incelendi", d, "StationReviewed");
-        if (kind == DraftKind.TemporaryDuty)
-        {
-            var travel = new StackPanel();
-            var timelineCard = Card("4 · Seyahat ve hak günleri", Dependent(first.Right));
-            timelineCard.Children.Add(new Expander { Header = Heading("Seyahat takvimi · m.43 aday süreleri"), Foreground = (Brush)FindResource("Gold"), Content = travel, Margin = new(0, 8, 0, 14) });
-            travel.Children.Add(Text("Gidiş hareketi ve dönüş varışı üstteki ayrılış/dönüş saatleridir. Aşağıdaki saatleri gerçek belgelerden girin; boş değer varsayılmaz."));
-            DateField(travel, "Gidiş varışı", d, nameof(d.OutboundArrival));
-            DateField(travel, "Fiilî görev başlangıcı", d, nameof(d.WorkStarts));
-            DateField(travel, "Fiilî görev bitişi", d, nameof(d.WorkEnds));
-            DateField(travel, "Dönüş hareketi", d, nameof(d.InboundDeparture));
-            Field(travel, "Gidiş saat kanıtı", d, "OutboundEvidence"); Field(travel, "Dönüş saat kanıtı", d, "InboundEvidence"); Field(travel, "Fiilî görev saat kanıtı", d, "WorkTimeEvidence");
-            Check(travel, "Fiilî görev saatleri belgeli incelendi", d, "WorkTimesReviewed");
-            Check(travel, "Saat dilimi / saat değişimi şüphesi var", d, "ClockConcern");
-            var travelResult = Text("Aday süreler henüz hesaplanmadı. Hak günlerine otomatik aktarım yok.");
-            Button(travel, "Seyahat adaylarını göster", () => {
-                var result = Service.PreviewTimeline(_formPerson!, d);
-                travelResult.Text = result.Explanation + "\nGidiş aday birimi: " + result.OutboundArticle43CandidateUnits +
-                    " · Dönüş aday birimi: " + result.InboundArticle43CandidateUnits +
-                    "\nAday takvim: " + string.Join(", ", result.CandidateCalendarDates.Select(x => x.ToString("dd.MM.yyyy"))) +
-                    "\nÇakışan tarihler: " + string.Join(", ", result.OverlapDates.Select(x => x.ToString("dd.MM.yyyy"))) +
-                    "\nBunlar onaylı hak günleri değildir. Veri değişirse yeniden hesaplayın.";
-                Status.Text = "Seyahat takvimi değerlendirildi; hak günleri veya tutar satırları değiştirilmedi.";
-            });
-            travel.Children.Add(travelResult);
-            c = new StackPanel(); var expander = new Expander { Header = Heading("Çok günlü görev · incelenmiş hak günleri"), Foreground = (Brush)FindResource("Gold"), Content = c, Margin = new(0, 8, 0, 14) }; timelineCard.Children.Add(expander);
-            multiDayReview = expander;
-            RefreshMultiDayReview();
-            RegisterIssue("ReviewedDays", expander, timelineCard);
-            c.Children.Add(Text("Takvim günleri otomatik hak günü değildir. m.43 adayları buraya otomatik aktarılmaz."));
-            Field(c, "Önceki gün sayısı · bilinmiyorsa boş", d, "PriorDays"); Field(c, "Önceki gün defteri kanıtı", d, "PriorDaysEvidence");
-            Check(c, "Aynı kişi/yer/iş ve yıllık dönem incelendi", d, "AnnualPeriodReviewed"); Check(c, "Geçmiş gün defteri incelendi", d, "PriorDaysReviewed"); Check(c, "Hak günleri / seyahat incelemesi tamam", d, "EligibleDaysReviewed"); Check(c, "m.42 istisnaları ayrıca değerlendirildi", d, "Article42ExceptionsExcluded"); Check(c, "33(d) konaklama hak sahipliği incelendi", d, "LodgingReviewed");
-            var grid = Grid(d.ReviewedDays, true); AddCalendarColumn(grid); Col(grid, "Konaklama sırası", "LodgingOrdinal", 125); Col(grid, "Fatura TL", "LodgingAmount", 110); Col(grid, "Fatura kanıtı", "Receipt", 200); c.Children.Add(grid);
-        }
-        if (permanent)
-        {
-            BuildPermanentAssignmentActions();
-            RefreshEntryAvailability();
+            BuildPermanentBoard(d);
             return;
         }
-        var documents = Card("Gider ve belge", Dependent(PageFooter()));
-        BuildDocumentFields(d, documents);
-        var actions = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
-        Page.Children.Add(actions);
-        Button(actions, "Vazgeç", CancelEntry);
-        var save = Button(actions, "Kaydet", SaveEntry);
-        _dependentEntryCards.Add(save);
+        if (d.Kind == DraftKind.TemporaryDuty && d.QuickTemporaryEnabled)
+        {
+            BuildQuickTemporaryBoard(d);
+            return;
+        }
+        // Yalnız eski kayıtlar için önceki seyahat takvimi görünümü.
+        var (person, task, result) = BuildThreeCardWorkspace(
+            "2 · Görev ve Güzergâh", "1 · Kişi", "3 · Ek Giderler");
+        person.Children.Add(Text("Personeli seçin veya yeni kişi oluşturun. Kayıtlı kişiyi tekrar yazmanız gerekmez.", 12));
+        BuildEntryPersonnel(person);
+        Button(person, "Vazgeç", CancelEntry).HorizontalAlignment = HorizontalAlignment.Left;
+
+        var guarded = Dependent(task);
+        var origin = new StackPanel();
+        var destination = new StackPanel();
+        guarded.Children.Add(origin);
+        guarded.Children.Add(destination);
+        AddRoute(origin, destination, d);
+
+        FrameworkElement? multiDayArea = null;
+        void RefreshMultiDay()
+        {
+            if (multiDayArea is not null)
+                multiDayArea.Visibility = d.Departure != default && d.Return.Date > d.Departure.Date
+                    ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        DateField(guarded, "Ayrılış tarihi", d, nameof(d.Departure), changed: RefreshMultiDay);
+        DateField(guarded, "Dönüş tarihi", d, nameof(d.Return), changed: RefreshMultiDay);
+        Choice(guarded, "Memuriyet mahalli değerlendirmesi",
+            Enum.GetValues<DutyStationAssessment>(), d, nameof(d.Station));
+
+        var multiDay = new StackPanel();
+        var dayDetails = new Expander
+        {
+            Header = "Çok günlü görev · gündelik ve konaklama günleri",
+            IsExpanded = true,
+            Content = multiDay,
+            Foreground = (Brush)FindResource("Gold"),
+            Margin = new(0, 12, 0, 10)
+        };
+        multiDayArea = dayDetails;
+        guarded.Children.Add(dayDetails);
+        multiDay.Children.Add(Text("Yalnız birden fazla güne yayılan görevlerde kullanılır. Tarihler arasındaki bütün günler varsayılan hak günü değildir; hesabınıza dahil edeceğiniz günleri seçin.", 12));
+        Button(multiDay, "Tarih aralığındaki günleri hesaplamaya ekle", () =>
+        {
+            if (d.Departure == default || d.Return <= d.Departure ||
+                (d.Return.Date - d.Departure.Date).TotalDays > 179)
+                throw new InvalidOperationException("Önce geçerli ayrılış/dönüş tarihlerini girin (en fazla 180 gün).");
+            d.ReviewedDays.Clear();
+            for (var day = d.Departure.Date; day <= d.Return.Date; day = day.AddDays(1))
+                d.ReviewedDays.Add(new ReviewedDayEntry { Date = day });
+            Invalidate(d);
+            ShowPage();
+            Status.Text = "Tarih aralığındaki günler hesaplamaya eklendi. Hak edilmeyen günleri gün listesinden çıkarabilirsiniz.";
+        });
+        Field(multiDay, "Önceki gün sayısı · bilinmiyorsa boş", d, nameof(d.PriorDays));
+        var reviewedDays = Grid(d.ReviewedDays, true);
+        AddCalendarColumn(reviewedDays);
+        Col(reviewedDays, "Konaklama sırası", nameof(ReviewedDayEntry.LodgingOrdinal), 125);
+        Col(reviewedDays, "Fatura TL", nameof(ReviewedDayEntry.LodgingAmount), 110);
+        multiDay.Children.Add(reviewedDays);
+        RegisterIssue("ReviewedDays", dayDetails, guarded);
+        RefreshMultiDay();
+        Button(guarded, "Hesapla", PreviewTemporary);
+
+        result.Children.Add(Text(
+            "Eski görev kayıtları için yalnız ek hesap girdileri. Sonuç Hesapla panelinde açılır.", 12));
+        var extras = Dependent(new StackPanel());
+        var optional = new Expander
+        {
+            Header = "Varsa ek taşıt, konaklama ve avans",
+            IsExpanded = d.Expenses.Count > 0 || d.Advance > 0m,
+            Content = extras,
+            Foreground = (Brush)FindResource("Gold"),
+            Margin = new(0, 10, 0, 12)
+        };
+        result.Children.Add(optional);
+        BuildDocumentFields(d, extras);
         RefreshEntryAvailability();
+    }
+
+    private void PreviewTemporary() => CalculateToResults();
+
+    private void InvalidateTemporaryResult()
+    {
+        if (_form?.Kind != DraftKind.TemporaryDuty || _temporaryPreview is null) return;
+        _temporaryPreview = null;
+        if (_temporaryResultContent is not null)
+            _temporaryResultContent.Visibility = Visibility.Collapsed;
+        if (_temporaryResultHint is not null)
+            _temporaryResultHint.Text = "Girdi değişti. Güncel tutar için tekrar Hesapla düğmesine basın.";
     }
 
     private StackPanel PageFooter()
@@ -331,15 +366,15 @@ public partial class MainWindow : Window
     private string OutputPath(string prefix) => Path.Combine(PortablePaths.Outputs, prefix + "_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + Guid.NewGuid().ToString("N")[..8] + ".pdf");
     private DraftDocument Prepare(DutyRecord d)
     {
-        var result = Service.PrepareDraft(Person(d), d);
+        var result = Service.PrepareCalculationPdf(Person(d), d);
         return result.MayPrintDraft ? result.Document! : throw new InvalidOperationException(result.Reason);
     }
     private void MakePdf(DutyRecord duty)
     {
         var document = Prepare(duty);
-        var path = OutputPath("KONTROL_TASLAGI");
+        var path = OutputPath("YOLLUK_HESAPLAMA");
         TravelDraftPdfWriter.SaveDraft(document, path);
-        Status.Text = "Kontrol taslağı oluşturuldu: " + path;
+        Status.Text = "Yolluk hesaplama PDF'si oluşturuldu: " + path;
         _dialog(Path.GetFileName(path), "PDF oluşturuldu", MessageBoxButton.OK);
         _openFolder(Path.GetDirectoryName(path)!);
     }

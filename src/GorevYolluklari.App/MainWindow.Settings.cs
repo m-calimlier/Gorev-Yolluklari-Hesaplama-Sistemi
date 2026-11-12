@@ -61,10 +61,12 @@ public partial class MainWindow
         card.Children.Add(layout);
         foreach (var field in fields)
         {
-            var box = new TextBox { Text = field.Value.ToString(Tr), IsReadOnly = true };
+            var box = new TextBox { Text = field.Value.ToString(Tr), IsReadOnly = true,
+                Style = (Style)FindResource("HakedisFieldText") };
             AutomationProperties.SetName(box, field.Label);
             var group = new StackPanel();
-            group.Children.Add(new Label { Content = new TextBlock { Text = Heading(field.Label) }, Target = box });
+            group.Children.Add(new Label { Content = new TextBlock { Text = Heading(field.Label) }, Target = box,
+                Style = (Style)FindResource("HakedisFieldLabel") });
             group.Children.Add(box);
             layout.Children.Add(group);
             editors.Add(box);
@@ -72,10 +74,13 @@ public partial class MainWindow
 
         var actions = new WrapPanel();
         card.Children.Add(actions);
-        var edit = new Button { Content = "Düzenle" };
+        var edit = new Button { Content = "Düzenle",
+            Style = (Style)FindResource("HakedisPrimaryAction") };
         AutomationProperties.SetName(edit, title + " sabitlerini düzenle");
-        var cancel = new Button { Content = "Vazgeç", Visibility = Visibility.Collapsed };
-        var resetButton = new Button { Content = "Kaynak değerlerini yükle", Visibility = Visibility.Collapsed };
+        var cancel = new Button { Content = "Vazgeç", Visibility = Visibility.Collapsed,
+            Style = (Style)FindResource("HakedisSecondaryAction") };
+        var resetButton = new Button { Content = "Kaynak değerlerini yükle", Visibility = Visibility.Collapsed,
+            Style = (Style)FindResource("HakedisSecondaryAction") };
         actions.Children.Add(edit);
         actions.Children.Add(cancel);
         actions.Children.Add(resetButton);
@@ -125,25 +130,21 @@ public partial class MainWindow
 
     private void SourcesPage()
     {
-        Page.Children.Add(Text("Kaynaklar", 28));
-        var card = Card("Hesap ve belge dayanakları");
+        Page.Children.Add(Text("Hesap Dayanakları", 28));
+        var card = Card("Yalnız kullanılan temel mevzuat");
+        card.Children.Add(Text(
+            "Geçici/Sürekli Görev hesapları için gerekli madde ve 2026 tarifesi. " +
+            "İlgili olmayan eski yardımcı görüşler bu ekrandan kaldırıldı; mevcut arşiv dosyaları silinmedi.", 12));
         AddSource(card, "6245 sayılı Harcırah Kanunu", "01_Mevzuat/6245_Harcirah_Kanunu.pdf",
-            "https://www.mevzuat.gov.tr/MevzuatMetin/1.3.6245.pdf");
-        AddSource(card, "2026 H Cetveli", "02_Butce_ve_Tarifeler/2026_H_Cetveli.pdf", DailyRateTariff2026.SourceUrl);
-        AddSource(card, "Merkezî Yönetim Harcama Belgeleri Yönetmeliği", "03_Belgeler_ve_Sablonlar/Harcama_Belgeleri_Yonetmeligi.pdf");
-        var budget = Card("Bütçe ve yardımcı belgeler");
-        AddSource(budget, "2026 Merkezi Yönetim Bütçe Kanunu", "02_Butce_ve_Tarifeler/2026_Butce_Kanunu.pdf",
-            "https://www.sbb.gov.tr/wp-content/uploads/2025/12/1-2026-Yili-Merkezi-Yonetim-Butce-Kanunu.pdf");
-        AddSource(budget, "2025/1 Kamu Görevlileri Hakem Kurulu Kararı", "02_Butce_ve_Tarifeler/2025_1_Hakem_Kurulu_Karari.pdf");
-        AddSource(budget, "8. Dönem Toplu Sözleşme Rehberi · TBB", "02_Butce_ve_Tarifeler/8_Donem_Toplu_Sozlesme_TBB.pdf");
-        var opinions = Card("MEB görüş yazıları");
-        AddSource(opinions, "Büyükşehirde harcırah", "04_MEB_Gorusleri/2026_Buyuksehir_Harcirah.pdf");
-        AddSource(opinions, "Geçici görev yolluğu", "04_MEB_Gorusleri/2026_Gecici_Gorev_Yollugu.pdf");
-        AddSource(opinions, "Aile fertleri ve mutat taşıt", "04_MEB_Gorusleri/Aile_Fertleri_Mutat_Tasit.pdf");
-        AddSource(opinions, "Sözleşmeli personel sürekli görev yolluğu", "04_MEB_Gorusleri/Sozlesmeli_Surekli_Gorev.pdf");
-        AddSource(opinions, "Sürekli görev yolluğu", "04_MEB_Gorusleri/Surekli_Gorev_Yollugu.pdf");
-        AddSource(opinions, "Sürekli görev yolluğunda ödeyen kurum", "04_MEB_Gorusleri/2025_Surekli_Gorev_Kim_Oder.pdf");
-        AddSource(opinions, "Sürekli görevde ikametgâh", "04_MEB_Gorusleri/Surekli_Gorev_Ikametgah.pdf");
+            HarcirahOfficialUrl);
+        AddSource(card, "2026 H Cetveli I-B", "02_Butce_ve_Tarifeler/2026_H_Cetveli.pdf",
+            H2026OfficialUrl);
+        foreach (var id in new[] { "M14", "M27", "M33D", "M39", "M42", "M43", "M44", "M45", "H2026" })
+        {
+            var code = id;
+            var source = LegalSections[id];
+            Button(card, source.Title + " (" + source.Reference + ")", () => ShowLegalSection(code));
+        }
     }
 
     private void AddSource(Panel parent, string title, string relativePath, string? officialUrl = null)

@@ -55,8 +55,6 @@ public partial class MainWindow
     private IEnumerable<(string, string)> PersonIssues(PersonnelRecord person)
     {
         if (string.IsNullOrWhiteSpace(person.FullName)) yield return ("FullName", "Ad soyad girin.");
-        if (string.IsNullOrWhiteSpace(person.Title)) yield return ("Title", "Unvan girin.");
-        if (string.IsNullOrWhiteSpace(person.Institution)) yield return ("Institution", "Kurum girin.");
         if (person.Group == PersonnelTariffGroup.Unknown) yield return ("Group", "Statü seçin.");
         if (person.Grade is null or < 1 or > 15) yield return ("Grade", "1–15 arasında derece seçin.");
         if (person.Indicator is null or < 0) yield return ("Indicator", "Ek göstergeyi girin. Ek gösterge yoksa 0 yazın.");
@@ -64,6 +62,17 @@ public partial class MainWindow
 
     private IEnumerable<(string, string)> DutyIssues(DutyRecord duty, PersonnelRecord person, bool includeExpenses = true)
     {
+        if (duty.Kind == DraftKind.TemporaryDuty && duty.QuickTemporaryEnabled)
+        {
+            // Sadece gerçek aritmetik/tarife girdileri kontrol edilir;
+            // resmî belge veya memur onay beyanı istenmez.
+            foreach (var issue in PersonIssues(person)) yield return issue;
+            if (person.Group != PersonnelTariffGroup.GeneralCivilServant)
+                yield return ("Grade", "Kısa hesap yalnız 2026 genel memur/hizmetli tarifesini destekler.");
+            if (includeExpenses)
+                foreach (var issue in ExpenseIssues(duty)) yield return issue;
+            yield break;
+        }
         foreach (var issue in PersonIssues(person)) yield return issue;
         if (person.Group == PersonnelTariffGroup.SpecialOrHighOffice)
             yield return ("Group", "Bu personel statüsü ayrı tarife incelemesi gerektiriyor.");
@@ -72,8 +81,9 @@ public partial class MainWindow
         if (string.IsNullOrWhiteSpace(duty.Origin)) yield return ("Origin", "Çıkış ili ve ilçesini seçin.");
         if (string.IsNullOrWhiteSpace(duty.Destination)) yield return ("Destination", "Varış ili ve ilçesini seçin.");
         if (duty.Departure.Year != 2026)
-            yield return ("Departure", duty.Kind == DraftKind.PermanentDuty ? "2026 yılına ait atama / işlem tarihini seçin." :
-                "2026 yılına ait ayrılış tarihini, saati ve dakikayı seçin.");
+            yield return ("Departure", duty.Kind == DraftKind.PermanentDuty
+                ? "Bu sade hesaplayıcı yalnız 2026 bütçe dönemi içindir. Yeni 2026 kaydı açın."
+                : "2026 yılına ait ayrılış tarihini, saati ve dakikayı seçin.");
         if (duty.Kind == DraftKind.TemporaryDuty)
         {
             if (duty.Return.Year != 2026) yield return ("Return", "2026 yılına ait dönüş tarihini, saati ve dakikayı seçin.");
@@ -81,30 +91,25 @@ public partial class MainWindow
             if (duty.Departure.Year == 2026 && duty.Return.Year == 2026 && duty.Departure.Date != duty.Return.Date)
             {
                 if (duty.ReviewedDays.Count == 0) yield return ("ReviewedDays", "İncelenmiş hak günlerini girin.");
-                if (duty.PriorDays is null or < 0) yield return ("PriorDays", "İncelenmiş önceki gün sayısını girin.");
-                if (string.IsNullOrWhiteSpace(duty.PriorDaysEvidence)) yield return ("PriorDaysEvidence", "Gün defteri dayanağını girin.");
-                if (!duty.AnnualPeriodReviewed) yield return ("AnnualPeriodReviewed", "Yıllık dönemi inceleyin.");
-                if (!duty.PriorDaysReviewed) yield return ("PriorDaysReviewed", "Önceki günleri inceleyin.");
-                if (!duty.EligibleDaysReviewed) yield return ("EligibleDaysReviewed", "Hak günlerini inceleyin.");
-                if (!duty.Article42ExceptionsExcluded) yield return ("Article42ExceptionsExcluded", "İstisnaları inceleyin.");
-                if (!duty.LodgingReviewed && duty.ReviewedDays.Any(day => day.LodgingAmount.HasValue))
-                    yield return ("LodgingReviewed", "Konaklama hak sahipliğini inceleyin.");
+                if (duty.PriorDays is < 0) yield return ("PriorDays", "Önceki gün sayısı negatif olamaz.");
             }
         }
         else
         {
+            if (!string.IsNullOrWhiteSpace(duty.Origin) &&
+                string.Equals(duty.Origin, duty.Destination, StringComparison.OrdinalIgnoreCase))
+                yield return ("Destination", "Eski ve yeni görev yeri aynı. Yer değiştirme gideri için farklı görev mahalli gerekir.");
             if (duty.FamilyCount < 0) yield return ("FamilyCount", "Aile ferdi sayısı negatif olamaz.");
             if (duty.Kilometers < 0) yield return ("Kilometers", "Mesafe negatif olamaz.");
-            if (string.IsNullOrWhiteSpace(duty.DistanceEvidence)) yield return ("DistanceEvidence", "KGM sorgusunu kullanın veya mesafe dayanağını girin.");
-            if (!duty.FamilyReviewed) yield return ("FamilyReviewed", "Aile hak sahipliğini inceleyin.");
-            if (duty.SpouseTransfer) yield return ("SpouseTransfer", "Eşin aynı güzergâhta nakli ayrı inceleme gerektiriyor.");
+            if (duty.TravelFarePerPerson is decimal fare &&
+                (fare < 0m || fare != decimal.Round(fare, 2) || fare > 100000m))
+                yield return ("TravelFarePerPerson", "Taşıt ücreti 0–100.000 TL arasında ve kuruş hassasiyetinde olmalıdır.");
         }
-        if (duty.Station == DutyStationAssessment.Unknown) yield return ("Station", "Memuriyet mahalli değerlendirmesini seçin.");
-        if (string.IsNullOrWhiteSpace(duty.AssignmentEvidence)) yield return ("AssignmentEvidence", "Görev oluru veya atama kararı referansını girin.");
-        if (string.IsNullOrWhiteSpace(duty.StationEvidence)) yield return ("StationEvidence", "Memuriyet mahalli dayanağını girin.");
-        if (string.IsNullOrWhiteSpace(duty.Reviewer)) yield return ("Reviewer", "İnceleme kaydının referansını girin.");
-        if (!duty.AssignmentReviewed) yield return ("AssignmentReviewed", "Görev oluru incelemesini tamamlayın.");
-        if (!duty.StationReviewed) yield return ("StationReviewed", "Memuriyet mahalli incelemesini tamamlayın.");
+        if (duty.Station == DutyStationAssessment.Unknown)
+            yield return (duty.Kind == DraftKind.PermanentDuty ? "Destination" : "Station",
+                duty.Kind == DraftKind.PermanentDuty
+                    ? "Eski ve yeni görev yeri tamamlanınca hesaplama mahalli otomatik belirlenir."
+                    : "Memuriyet mahalli değerlendirmesini seçin.");
         if (includeExpenses)
             foreach (var issue in ExpenseIssues(duty)) yield return issue;
     }
@@ -116,8 +121,6 @@ public partial class MainWindow
             var line = duty.Expenses[index];
             if (line.Amount <= 0 || line.Amount != decimal.Round(line.Amount, 2))
                 yield return (ExpenseKey(line, nameof(line.Amount)), $"{index + 1}. gider için pozitif, iki ondalık basamaklı tutar girin.");
-            if (string.IsNullOrWhiteSpace(line.Evidence))
-                yield return (ExpenseKey(line, nameof(line.Evidence)), "Giderin dayanağını girin.");
             if (string.IsNullOrWhiteSpace(line.Description))
                 yield return (ExpenseKey(line, nameof(line.Description)), "Gider açıklamasını girin.");
             if (string.IsNullOrWhiteSpace(line.LegalBasis))
@@ -125,35 +128,4 @@ public partial class MainWindow
         }
     }
 
-    private static IEnumerable<(string Key, string Message)> DocumentIssues(DutyRecord duty, string? reason = null, bool includeReview = true)
-    {
-        if (includeReview && !duty.AmountsReviewed) yield return ("AmountsReviewed", "Belge ve tutar incelemesini tamamlayın.");
-        if (duty.Expenses.Count == 0) yield return ("Expenses", "Belge için en az bir doğrulanmış gider satırı girin.");
-        foreach (var issue in ExpenseIssues(duty)) yield return issue;
-        if (!TryExpenseTotals(duty, out var gross, out var net))
-        {
-            yield return ("Expenses", "Gider toplamı hesaplanamadı. Tutarları kontrol edin.");
-            yield break;
-        }
-        if (duty.IndependentGross is null || duty.IndependentGross != gross)
-            yield return ("IndependentGross", "Bağımsız brüt tutarı girin ve gider toplamıyla karşılaştırın.");
-        if (duty.IndependentNet is null || duty.IndependentNet != net)
-            yield return ("IndependentNet", "Bağımsız net tutarı girin ve avans sonrası toplamla karşılaştırın.");
-        if (duty.Advance < 0 || duty.Advance > gross) yield return ("Advance", "Avans sıfır ile brüt toplam arasında olmalı.");
-        if (duty.Advance > 0 && string.IsNullOrWhiteSpace(duty.AdvanceEvidence))
-            yield return ("AdvanceEvidence", "Avansın dayanağını girin.");
-        if (reason is not null && duty.AmountsReviewed && duty.Expenses.Count > 0 &&
-            duty.IndependentGross == gross && duty.IndependentNet == net)
-            yield return ("AmountsReviewed", reason);
-    }
-
-    private void OpenPdfIssues(DutyRecord duty, string reason)
-    {
-        OpenEntry(duty, reviewPdf: true);
-        if (_form?.Id != duty.Id || Navigation.SelectedIndex != 1) return;
-        if (duty.Kind == DraftKind.PermanentDuty && _permanentStep != PermanentStep.Result)
-            CheckFormIssues(DutyIssues(_form, _formPerson!, includeExpenses: false));
-        else
-            CheckFormIssues(DocumentIssues(duty, reason));
-    }
 }

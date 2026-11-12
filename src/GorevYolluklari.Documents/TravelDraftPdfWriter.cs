@@ -1,6 +1,7 @@
 using System.IO;
 using System.Globalization;
 using GorevYolluklari.Core.Documents;
+using GorevYolluklari.Core.Rules;
 using PdfSharp;
 using PdfSharp.Drawing;
 using PdfSharp.Pdf;
@@ -35,9 +36,22 @@ public static class TravelDraftPdfWriter
             throw new InvalidDataException("Tutarsız veya resmî olarak işaretlenmiş taslak PDF üretilemez.");
         ValidateOutputPath(destinationPath);
         using var pdf = new PdfDocument();
-        pdf.Info.Title = $"KONTROL TASLAĞI - {document.RequiredFormCode}";
-        pdf.Info.Subject = "Ödeme belgesi değildir";
-        pdf.Info.Creator = "Görev Yollukları Hesaplama Sistemi - Taslak Modülü";
+        pdf.Info.Title = $"{(document.IsCalculationOutput ? "YOLLUK HESAPLAMA ÇIKTISI" : "KONTROL TASLAĞI")} - {document.RequiredFormCode}";
+        pdf.Info.Subject = "Yolluk hesabıdır; resmi onay belgesi değildir";
+        pdf.Info.Creator = "Görev Yollukları Hesaplama Cetveli - Created by Murat ÇALIMLIER";
+        // Hesaplama çıktıları için gerçek Örnek 27/28'e benzeyen bağımsız
+        // A4 yatay cetvel. Eski kontrol taslakları ve çok satırlı belgeler
+        // geriye dönük uyumluluk için mevcut yazıcıyla basılmaya devam eder.
+        if (YollukFormPdfRenderer.Supports(document))
+        {
+            var formPage = pdf.AddPage();
+            formPage.Size = PageSize.A4;
+            formPage.Orientation = PageOrientation.Landscape;
+            using (var g = XGraphics.FromPdfPage(formPage))
+                YollukFormPdfRenderer.Render(g, formPage.Width.Point, formPage.Height.Point, document);
+            AtomicSave(pdf, destinationPath);
+            return;
+        }
         int pageCount = (document.Lines.Count + LinesPerPage - 1) / LinesPerPage;
         for (int pageNo = 0; pageNo < pageCount; pageNo++)
         {
@@ -110,26 +124,39 @@ public static class TravelDraftPdfWriter
         DraftDocument doc, int pageNo, int pageCount)
     {
         var title = doc.Kind == DraftKind.TemporaryDuty
+            ? "YURT İÇİ GEÇİCİ GÖREV YOLLUĞU - Örnek 27 hesabı"
+            : "YURT İÇİ SÜREKLİ GÖREV YOLLUĞU - Örnek 28 hesabı";
+        if (!doc.IsCalculationOutput) title = doc.Kind == DraftKind.TemporaryDuty
             ? "YURT İÇİ GEÇİCİ GÖREV YOLLUĞU TASLAĞI - Örnek 27 alanları"
             : "YURT İÇİ SÜREKLİ GÖREV YOLLUĞU TASLAĞI - Örnek 28 alanları";
-        DrawPageTop(g, width, title, $"{doc.DocumentNumber} - {pageNo + 1}/{pageCount}");
+        DrawPageTop(g, width, title, $"{doc.DocumentNumber} - {pageNo + 1}/{pageCount}", doc.IsCalculationOutput);
         var normal = Font(9);
         var bold = Font(9, true);
         Text(g, "Kurum: " + doc.Institution, normal, Left, 103, 730);
         Text(g, "Personel: " + doc.PersonnelFullName + " | Unvan: " + doc.PersonnelTitle,
             normal, Left, 124, 730);
-        Text(g, $"Güzergâh: {doc.Origin} - {doc.Destination}", normal, Left, 145, 470);
-        Text(g, $"Tarih: {doc.Begins:dd.MM.yyyy} - {doc.Ends:dd.MM.yyyy} | Yıl: {doc.BudgetYear}", normal, Left + 482, 145, 310);
+        Text(g, doc.IsQuickTemporaryCalculation
+            ? "Güzergâh girilmedi (kısa hesap)"
+            : $"Güzergâh: {doc.Origin} - {doc.Destination}", normal, Left, 145, 470);
+        var dates = doc.IsCalculationOutput && doc.Kind == DraftKind.PermanentDuty
+            ? $"Bütçe dönemi: {doc.BudgetYear} | Atama tarihi girilmedi"
+            : doc.IsQuickTemporaryCalculation
+                ? $"Bütçe dönemi: {doc.BudgetYear} | Seyahat tarihleri girilmedi"
+                : $"Tarih: {doc.Begins:dd.MM.yyyy} - {doc.Ends:dd.MM.yyyy} | Yıl: {doc.BudgetYear}";
+        Text(g, dates, normal, Left + 482, 145, 310);
         Text(g, $"Tarife: {doc.TariffReference} | Kural: {doc.RuleVersion}", normal, Left, 166, 730);
         var cols = new[] { Left, 90d, 225d, 445d, 630d, width - Right };
-        DrawTableHeader(g, cols, TableTop, new[] { "Satır", "Gider türü", "Açıklama", "Kanıt / Dayanak", "Tutar (TL)" });
+        DrawTableHeader(g, cols, TableTop, new[] { "Satır", "Gider türü", "Açıklama",
+            doc.IsCalculationOutput ? "Mevzuat" : "Kanıt / Dayanak", "Tutar (TL)" });
         var lines = doc.Lines.Skip(pageNo * LinesPerPage).Take(LinesPerPage).ToArray();
         for (int i = 0; i < lines.Length; i++)
         {
             var line = lines[i];
             DrawRow(g, cols, TableTop + 24d + RowHeight * i,
                 new[] { line.LineId, KindText(line.Kind), line.Description,
-                    line.EvidenceReference + " / " + line.LegalReference, Currency(line.AmountTry) }, normal);
+                    doc.IsCalculationOutput ? line.LegalReference :
+                        line.EvidenceReference + " / " + line.LegalReference,
+                    Currency(line.AmountTry) }, normal);
         }
         if (pageNo == pageCount - 1)
         {
@@ -139,19 +166,30 @@ public static class TravelDraftPdfWriter
             g.DrawLine(new XPen(Gold, 1.6), Left, y, width - Right, y);
             Text(g, "Brüt: " + DraftDocumentService.Money(doc.GrossTry), bold, Left, y + 10, 245);
             Text(g, "Avans: " + DraftDocumentService.Money(doc.AdvanceTry), bold, 305, y + 10, 215);
-            Text(g, "Net ön hesap: " + DraftDocumentService.Money(doc.NetTry), bold, 545, y + 10, 255);
+            Text(g, "Damga öncesi: " + DraftDocumentService.Money(doc.NetTry), bold, 545, y + 10, 255);
         }
+        var tax = decimal.Round(doc.GrossTry * YollukOdemeOzeti2026.DamgaVergisiOrani, 2, MidpointRounding.AwayFromZero);
         DrawFooter(g, width, height,
-            "Görev oluru: " + doc.AssignmentEvidence + " | Mahallî değerlendirme: " + doc.StationEvidence);
+            doc.IsQuickTemporaryCalculation
+                ? "Ön hesap: 6245 m.42 önceki görev günleri sıfır varsayılmıştır; hak sahipliği kurumca incelenir."
+                : doc.IsCalculationOutput && doc.Kind == DraftKind.PermanentDuty
+                ? "Ön hesap: 1 gün seyahat, kişi başına eşit taşıt bedeli varsayılmıştır. Hak sahipliği kurumca incelenir."
+                : doc.IsCalculationOutput
+                    ? "Girilen verilerden hesaplandı; hak sahipliği ve belgelerin incelemesi kurumca yapılır."
+                    : "Görev oluru: " + doc.AssignmentEvidence + " | Mahallî değerlendirme: " + doc.StationEvidence,
+            pageNo == pageCount - 1
+                ? $"2026 damga vergisi (binde 7,59): {Currency(tax)} TL | Tahmini ödenecek: {Currency(doc.NetTry - tax)} TL"
+                : null, doc.IsCalculationOutput);
     }
 
-    private static void DrawPageTop(XGraphics g, double width, string title, string detail)
+    private static void DrawPageTop(XGraphics g, double width, string title, string detail, bool calculationOutput = false)
     {
         g.DrawRectangle(new XSolidBrush(Navy), 0, 0, width, 68);
         Text(g, "GÖREV YOLLUKLARI", Font(10, true), Left, 12, width - 2 * Left, XBrushes.White);
         Text(g, title, Font(13, true), Left, 30, width - 2 * Left, XBrushes.White);
         g.DrawRectangle(new XSolidBrush(Light), Left, 71, width - 2 * Left, 25);
-        Text(g, "KONTROL TASLAĞI - ÖDEME BELGESİ DEĞİLDİR", Font(10, true), Left + 8, 76, 535,
+        Text(g, calculationOutput ? "YOLLUK HESAPLAMA ÇIKTISI - RESMİ ONAY DEĞİLDİR"
+                : "KONTROL TASLAĞI - ÖDEME BELGESİ DEĞİLDİR", Font(10, true), Left + 8, 76, 535,
             new XSolidBrush(Navy));
         Text(g, detail, Font(8), width - 280, 76, 240, new XSolidBrush(Navy));
     }
@@ -182,18 +220,23 @@ public static class TravelDraftPdfWriter
         Text(g, "Avans: " + advance, bold, 400, y+9, 185);
         Text(g, "Net: " + net, bold, 612, y+9, 180);
     }
-    private static void DrawFooter(XGraphics g, double width, double height, string note)
+    private static void DrawFooter(XGraphics g, double width, double height, string note, string? payment = null, bool calculationOutput = false)
     {
         g.DrawLine(new XPen(Gold, 1.4), Left, height - 58, width - Right, height - 58);
-        Text(g, "ÖDEME BELGESİ DEĞİLDİR - İMZAYA / MUHASEBEYE SUNULAMAZ", Font(8, true), Left, height - 51, width-2*Left);
+        Text(g, calculationOutput ? "HESAPLAMA ÇIKTISI - RESMİ ÖDEME ONAYI DEĞİLDİR"
+            : "ÖDEME BELGESİ DEĞİLDİR - İMZAYA / MUHASEBEYE SUNULAMAZ", Font(8, true), Left, height - 51, width-2*Left);
         Text(g, note, Font(7), Left, height - 35, width - 2 * Left);
-        Text(g, "Bu taslak Örnek 27/28'in onaylı sureti değildir; mevzuat ve belge kontrolü bekleniyor.", Font(7), Left, height - 23, width - 2 * Left);
+        Text(g, payment ?? (calculationOutput
+                ? "Hesaplama çıktısıdır; resmi Örnek 27/28 yerine geçmez."
+                : "Bu taslak Örnek 27/28'in onaylı sureti değildir; mevzuat ve belge kontrolü bekleniyor."),
+            Font(7), Left, height - 23, width - 2 * Left);
     }
     private static string KindText(DraftLineKind kind) => kind switch
     {
         DraftLineKind.DailyAllowance => "Gündelik", DraftLineKind.TicketOrTravel => "Yol",
         DraftLineKind.Accommodation => "Konaklama", DraftLineKind.FamilyDaily => "Aile gündeliği",
-        DraftLineKind.FamilyTravel => "Aile yol", DraftLineKind.Relocation => "Yer değiştirme", _ => "Bilinmeyen"
+        DraftLineKind.FamilyTravel => "Aile yol", DraftLineKind.Relocation => "Yer değiştirme",
+        DraftLineKind.OtherEligible => "Diğer", _ => "Bilinmeyen"
     };
     private static XFont Font(double size, bool bold=false) =>
         new("Arial", size, bold ? XFontStyleEx.Bold : XFontStyleEx.Regular, XPdfFontOptions.UnicodeDefault);
@@ -221,7 +264,8 @@ public static class TravelDraftPdfWriter
             !Money(document.GrossTry) || !Money(document.AdvanceTry) || !Money(document.NetTry) ||
             document.AdvanceTry > document.GrossTry || document.NetTry != document.GrossTry - document.AdvanceTry ||
             document.Lines.Any(x => x is null || !Enum.IsDefined(x.Kind) || !Money(x.AmountTry) || x.AmountTry <= 0 ||
-                string.IsNullOrWhiteSpace(x.LineId) || string.IsNullOrWhiteSpace(x.EvidenceReference) || string.IsNullOrWhiteSpace(x.LegalReference) ||
+                string.IsNullOrWhiteSpace(x.LineId) || (!document.IsCalculationOutput && string.IsNullOrWhiteSpace(x.EvidenceReference)) ||
+                string.IsNullOrWhiteSpace(x.LegalReference) ||
                 (document.Kind == DraftKind.TemporaryDuty && x.Kind is DraftLineKind.Relocation or DraftLineKind.FamilyDaily or DraftLineKind.FamilyTravel) ||
                 (document.Kind == DraftKind.PermanentDuty && x.Kind == DraftLineKind.Accommodation)) ||
             document.Lines.Select(x => x.LineId).Distinct().Count() != document.Lines.Count ||

@@ -86,9 +86,9 @@ public partial class MainWindow
     private void RefreshEntryAvailability()
     {
         var ready = PersonIsReady;
-        foreach (var card in _dependentEntryCards) card.IsEnabled = _formPersonBaseline is not null;
+        foreach (var card in _dependentEntryCards) card.IsEnabled = true;
         if (_personStatus is not null)
-            _personStatus.Text = ready ? _formPerson!.FullName + " · Kayıt hazır" : "Devam etmek için kişiyi kaydedin.";
+            _personStatus.Text = ready ? _formPerson!.FullName + " · Hazır" : "Hesaplama/PDF sırasında kişi otomatik kaydedilir.";
     }
 
 
@@ -129,7 +129,8 @@ public partial class MainWindow
             var existing = _vm.Duties.Where(d => d.Kind == _form.Kind).ToArray();
             if (existing.Length > 0)
             {
-                var picker = new ComboBox { ItemsSource = existing, SelectedItem = existing.FirstOrDefault(d => d.Id == _form.Id) };
+                var picker = new ComboBox { ItemsSource = existing, SelectedItem = existing.FirstOrDefault(d => d.Id == _form.Id),
+                    Style = (Style)FindResource("HakedisFieldCombo") };
                 AutomationProperties.SetName(picker, "Mevcut görev");
                 Page.Children.Add(new Label { Content = "Mevcut Görevi Aç" });
                 Page.Children.Add(picker);
@@ -150,12 +151,16 @@ public partial class MainWindow
     private void StartEntry(DraftKind kind)
     {
         ResetPermanentStep();
+        _temporaryPreview = null;
+        _pendingDuty = null;
+        _pendingPerson = null;
         _selectedModule = kind;
         _formPerson = new PersonnelRecord();
         _formPersonBaseline = null;
         _form = new DutyRecord
         {
             Kind = kind,
+            QuickTemporaryEnabled = kind == DraftKind.TemporaryDuty,
             PersonnelId = _formPerson.Id,
             Departure = default,
             Return = default,
@@ -166,31 +171,20 @@ public partial class MainWindow
         ShowPage();
     }
 
-    private void OpenEntry(DutyRecord duty, bool reviewPdf = false)
+    private void OpenEntry(DutyRecord duty)
     {
         if ((_formChanged || _personChanged) && _dialog("Açık formdaki değişiklikler bırakılsın mı?", "Görev formu", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
             return;
         ResetPermanentStep();
+        _temporaryPreview = null;
+        _pendingDuty = null;
+        _pendingPerson = null;
         _selectedModule = duty.Kind;
         _form = Copy(duty);
         _formPerson = Copy(Person(duty));
         _formPersonBaseline = JsonSerializer.Serialize(_formPerson);
         _formChanged = false;
         _personChanged = false;
-        if (duty.Kind == DraftKind.PermanentDuty)
-        {
-            _permanentStep = PermanentStep.Assignment;
-            if (reviewPdf)
-            {
-                var preview = Service.Preview(_formPerson, _form);
-                if (preview.Amount is not null)
-                {
-                    _permanentPreview = preview;
-                    _permanentStep = PermanentStep.Result;
-                    _permanentExpensesOpen = true;
-                }
-            }
-        }
         if (Navigation.SelectedIndex == 1) ShowPage();
         else Navigation.SelectedIndex = 1;
     }
@@ -202,12 +196,14 @@ public partial class MainWindow
             .Concat(_vm.Personnel.Select(p => new PersonChoice(p, p.FullName))).ToArray();
         var picker = new ComboBox
         {
+            Style = (Style)FindResource("HakedisFieldCombo"),
             ItemsSource = choices,
             DisplayMemberPath = nameof(PersonChoice.Label),
             SelectedItem = choices.FirstOrDefault(x => x.Person?.Id == person.Id) ?? choices[0]
         };
         AutomationProperties.SetName(picker, "Personel seçimi");
-        card.Children.Add(new Label { Content = "Personel Seçimi" });
+        card.Children.Add(new Label { Content = "Personel Seçimi",
+            Style = (Style)FindResource("HakedisFieldLabel") });
         card.Children.Add(picker);
         var restoring = false;
         picker.SelectionChanged += (_, _) =>
@@ -224,18 +220,25 @@ public partial class MainWindow
             picker.SelectedItem = oldChoice;
             restoring = false;
         };
-        var fields = new UniformGrid { Columns = 2 };
+        var fields = new StackPanel();
         card.Children.Add(fields);
-        var identity = new StackPanel();
-        var tariff = new StackPanel();
-        fields.Children.Add(identity);
-        fields.Children.Add(tariff);
-        Field(identity, "Ad soyad", person, nameof(person.FullName));
-        Field(identity, "Unvan", person, nameof(person.Title));
-        Field(identity, "Kurum", person, nameof(person.Institution));
-        Choice(tariff, "Statü", Enum.GetValues<PersonnelTariffGroup>(), person, nameof(person.Group));
-        Choice(tariff, "Derece", Enumerable.Range(1, 15), person, nameof(person.Grade));
-        Field(tariff, "Ek gösterge", person, nameof(person.Indicator));
+        Field(fields, "Ad soyad", person, nameof(person.FullName));
+        Choice(fields, "Statü", Enum.GetValues<PersonnelTariffGroup>(), person, nameof(person.Group));
+        Choice(fields, "Derece", Enumerable.Range(1, 15), person, nameof(person.Grade));
+        Field(fields, "Ek gösterge", person, nameof(person.Indicator));
+        var optionalPerson = new StackPanel();
+        card.Children.Add(new Expander
+        {
+            Header = "İsteğe bağlı: unvan ve kurum",
+            Content = optionalPerson,
+            IsExpanded = !string.IsNullOrWhiteSpace(person.Title) ||
+                         !string.IsNullOrWhiteSpace(person.Institution),
+            Margin = new(0, 8, 0, 6),
+            Foreground = (Brush)FindResource("Gold")
+        });
+        Field(optionalPerson, "Unvan", person, nameof(person.Title));
+        Field(optionalPerson, "Kurum", person, nameof(person.Institution));
+        card.Children.Add(Text("Bilgiler Hesapla veya PDF aşamasında otomatik kaydedilir.", 12));
         Button(card, "Kişiyi kaydet", SaveEntryPerson);
         _personStatus = Text("", 12);
         card.Children.Add(_personStatus);
@@ -265,6 +268,9 @@ public partial class MainWindow
     private void ClearEntry()
     {
         ResetPermanentStep();
+        _temporaryPreview = null;
+        _pendingDuty = null;
+        _pendingPerson = null;
         _form = null;
         _formPerson = null;
         _formPersonBaseline = null;
@@ -275,11 +281,11 @@ public partial class MainWindow
 
     private void SaveCurrent()
     {
-        if (Navigation.SelectedIndex != 1 || _form is null) Save();
-        else if (_form.Kind == DraftKind.PermanentDuty && _permanentStep == PermanentStep.Person) SaveEntryPerson();
-        else if (_form.Kind == DraftKind.PermanentDuty && _permanentStep == PermanentStep.Assignment) PreviewPermanent();
-        else if (PersonIsReady) SaveEntry();
-        else SaveEntryPerson();
+        if (Navigation.SelectedIndex == 1 && _form is not null)
+            CalculateToResults();
+        else if (Navigation.SelectedIndex == 2 && _pendingDuty is not null)
+            SavePendingAndMakePdf();
+        else Save();
     }
 
     private void SaveEntryPerson()
@@ -308,9 +314,23 @@ public partial class MainWindow
         _taskStart?.Focus();
     }
 
-    private void SaveEntry()
+    private void SaveEntry() => SaveEntryCore(notify: true);
+
+    private void SaveAndMakePdf()
     {
-        if (!PersonIsReady) throw new InvalidOperationException("Önce kişi bilgilerini kaydedin.");
+        SaveEntryCore(notify: false);
+        if (_vm.SelectedDuty is { } saved) MakePdf(saved);
+    }
+
+    private void SaveEntryCore(bool notify)
+    {
+        if (_form?.Kind == DraftKind.PermanentDuty)
+            SetPermanentCalculationDefaults(Duty());
+        if (_form?.Kind == DraftKind.TemporaryDuty && _form.QuickTemporaryEnabled)
+            SetQuickTemporaryDefaults(Duty());
+        // Personel ve görev aynı dosya revizyonunda kaydedilir. Hesapla
+        // aşamasında diske hiçbir kayıt yapılmaz.
+        CheckFormIssues(PersonIssues(_formPerson!));
         var person = _formPerson!;
         var candidate = Copy(Duty());
         if (_formPersonBaseline is not null &&
@@ -321,29 +341,178 @@ public partial class MainWindow
             candidate.DocumentNumber.Trim(), StringComparison.OrdinalIgnoreCase)))
             CheckFormIssues([("DocumentNumber", "Bu belge numarası başka bir görevde kullanılıyor.")]);
 
-        candidate.ReviewedAt = candidate.AmountsReviewed ? DateTimeOffset.UtcNow : null;
+        // Belge incelemesi yapıldığını varsaymadan tutarı hesapla.
+        // Tutarı iki kez yazdırma ve "kontrol edildi" beyanı isteme.
+        candidate.AmountsReviewed = false;
+        candidate.ReviewedAt = null;
         var service = Service;
-        candidate.Snapshot = service.Preview(person, candidate);
-        if (candidate.Snapshot.Amount is null)
+        var calculation = service.PreviewForCalculation(person, candidate);
+        if (calculation.Amount is null)
             CheckFormIssues([(candidate.Kind == DraftKind.TemporaryDuty && candidate.Departure.Date != candidate.Return.Date
-                ? "ReviewedDays" : "Departure", candidate.Snapshot.Explanation)]);
-        CheckFormIssues(CalculatedExpenseIssues(candidate, candidate.Snapshot));
-        if (candidate.AmountsReviewed)
-        {
-            var review = service.PrepareDraft(person, candidate);
-            if (!review.MayPrintDraft) CheckFormIssues(DocumentIssues(candidate, review.Reason));
-        }
-        else ReviewPdfOnSave(candidate, person);
+                ? "ReviewedDays" : "Departure", calculation.Explanation)]);
+        if (candidate.Kind == DraftKind.TemporaryDuty && candidate.QuickTemporaryEnabled)
+            SyncQuickTemporaryExpenses(candidate, calculation);
+        else
+            SyncCalculatedExpense(candidate, calculation);
+        if (candidate.Kind == DraftKind.PermanentDuty)
+            SyncPermanentQuickExpenses(candidate, calculation);
+        candidate.Snapshot = service.PreviewForCalculation(person, candidate);
+        if (!candidate.QuickTemporaryEnabled)
+            CheckFormIssues(CalculatedExpenseIssues(candidate, candidate.Snapshot));
+        CheckFormIssues(ExpenseIssues(candidate));
+        if (candidate.Advance < 0m || (candidate.Expenses.Count > 0 &&
+                candidate.Advance > candidate.Expenses.Sum(x => x.Amount)))
+            CheckFormIssues([("Advance", "Avans tutarı gider toplamını aşamaz veya negatif olamaz.")]);
 
         var next = CurrentWorkspace();
+        var personIndex = next.Personnel.FindIndex(p => p.Id == person.Id);
+        if (personIndex < 0) next.Personnel.Add(Copy(person));
+        else next.Personnel[personIndex] = Copy(person);
         var dutyIndex = next.Duties.FindIndex(d => d.Id == candidate.Id);
         if (dutyIndex < 0) next.Duties.Add(candidate);
         else next.Duties[dutyIndex] = candidate;
         SaveWorkspace(next, candidate.Id);
         ClearEntry();
         Status.Text = "Görev ve hesap sonucu kaydedildi.";
-        _dialog("Görev ve hesap sonucu kaydedildi.", "Kayıt başarılı", MessageBoxButton.OK);
-        Navigation.SelectedIndex = 2;
+        if (notify) _dialog("Görev ve hesap sonucu kaydedildi.", "Kayıt başarılı", MessageBoxButton.OK);
+        if (Navigation.SelectedIndex == 2) ShowPage();
+        else Navigation.SelectedIndex = 2;
+    }
+
+    private static void SyncQuickTemporaryExpenses(DutyRecord duty, CalculationSnapshot preview)
+    {
+        var parts = preview.Components ?? [];
+        decimal Part(string name) => parts.FirstOrDefault(x => x.Label == name)?.Amount ?? 0m;
+        void Add(string key, DraftLineKind kind, decimal amount, string text, string basis)
+        {
+            var id = "OTO-" + key + "-" + duty.Id.ToString("N");
+            var current = duty.Expenses.FirstOrDefault(x => x.LineId == id);
+            if (amount <= 0m)
+            {
+                if (current is not null) duty.Expenses.Remove(current);
+                return;
+            }
+            if (current is null)
+            {
+                current = new ExpenseEntry { LineId = id };
+                duty.Expenses.Add(current);
+            }
+            current.Kind = kind;
+            current.Amount = TransferAmount(amount);
+            current.Description = text;
+            current.Evidence = "";
+            current.LegalBasis = basis;
+        }
+        Add("GQ", DraftLineKind.TicketOrTravel, Part("Gidiş ulaşım"),
+            "Gidiş ulaşım bedeli", "6245 m.14, m.27");
+        Add("RQ", DraftLineKind.TicketOrTravel, Part("Dönüş ulaşım"),
+            "Dönüş ulaşım bedeli", "6245 m.14, m.27");
+        Add("TQ", DraftLineKind.DailyAllowance,
+            Part("Gidiş yol gündeliği") + Part("Görev gündeliği") + Part("Dönüş yol gündeliği"),
+            "Gidiş, görev ve dönüş gündeliği", "6245 m.39, m.42, m.43");
+        Add("LQ", DraftLineKind.Accommodation, Part("Konaklama"),
+            "Konaklama (2026 H Cetveli tavanlı)", "6245 m.33(d), 2026 H Cetveli I dipnot 1");
+        Add("OQ", DraftLineKind.OtherEligible, Part("Diğer masraflar"),
+            "6245 m.14 kapsamı diğer masraflar", "6245 m.14");
+    }
+
+    private static void SyncCalculatedExpense(DutyRecord duty, CalculationSnapshot preview)
+    {
+        if (preview.Amount is null || preview.RuleVersion.StartsWith("SIM-", StringComparison.Ordinal)) return;
+        var permanent = duty.Kind == DraftKind.PermanentDuty;
+        var raw = permanent ? preview.Amount : DailyAmount(duty, preview);
+        var kind = permanent ? DraftLineKind.Relocation : DraftLineKind.DailyAllowance;
+        var id = permanent ? RelocationLineId(duty) : DailyLineId(duty);
+        if (raw is not decimal candidate || candidate <= 0m)
+        {
+            duty.Expenses.RemoveAll(x => x.LineId == id);
+            return;
+        }
+        var amount = TransferAmount(candidate);
+        var row = duty.Expenses.FirstOrDefault(x => x.LineId == id);
+        // Önceden elle girilmiş aynı türdeki kalemin üzerine otomatik ikinci satır ekleme.
+        if (row is null && duty.Expenses.Any(x => x.Kind == kind)) return;
+        if (row is null)
+        {
+            row = new ExpenseEntry { LineId = id };
+            duty.Expenses.Add(row);
+        }
+        row.Kind = kind;
+        row.Amount = amount;
+        row.Description = permanent ? "Yer değiştirme gideri" : "Gündelik";
+        row.LegalBasis = permanent ? "6245 m.45" : preview.LegalBasis;
+        row.Evidence = duty.AssignmentEvidence; // Boş olabilir: belgeyi memur kontrol eder.
+
+        // Çok günlü görevde motorun hesapladığı konaklama üst sınırını PDF'ye
+        // ayrıca aktarmak gerekir; aksi halde gündelik+konaklama eksik görünür.
+        if (!permanent)
+        {
+            var accommodationId = "OTO-KN-" + duty.Id.ToString("N");
+            if (preview.Components?.FirstOrDefault(x => x.Label == "Konaklama") is
+                not { Amount: > 0m } lodging)
+            {
+                duty.Expenses.RemoveAll(x => x.LineId == accommodationId);
+                return;
+            }
+            var accommodation = duty.Expenses.FirstOrDefault(x => x.LineId == accommodationId);
+            if (accommodation is null && duty.Expenses.Any(x => x.Kind == DraftLineKind.Accommodation)) return;
+            if (accommodation is null)
+            {
+                accommodation = new ExpenseEntry { LineId = accommodationId };
+                duty.Expenses.Add(accommodation);
+            }
+            accommodation.Kind = DraftLineKind.Accommodation;
+            accommodation.Description = "Konaklama (gündelik üst sınırı)";
+            accommodation.Amount = TransferAmount(lodging.Amount);
+            accommodation.Evidence = "";
+            accommodation.LegalBasis = "6245 m.33(d)";
+        }
+    }
+
+    // Referans dokuz alanlı sürekli görev ekranındaki giderler otomatik oluşturulur.
+    // Genel varsayım: bir seyahat günü; tek kişilik taşıt ücreti bütün yolcular için eşit.
+    // Kaydın önceki manuel giderleri otomatik silinmez / tekrarlanmaz.
+    private static void SyncPermanentQuickExpenses(DutyRecord duty, CalculationSnapshot preview)
+    {
+        if (preview.DailyRate is not decimal rate || rate <= 0m) return;
+        void SetLine(DraftLineKind kind, string key, decimal raw, string label, string legal)
+        {
+            var id = "OTO-" + key + "-" + duty.Id.ToString("N");
+            var old = duty.Expenses.FirstOrDefault(x => x.LineId == id);
+            if (raw <= 0m)
+            {
+                if (old is not null) duty.Expenses.Remove(old);
+                return;
+            }
+            var sameKind = duty.Expenses.Where(x => x.Kind == kind && x.LineId != id).ToArray();
+            if (sameKind.Length != 0)
+            {
+                // Eski kayıtların elle girilmiş satırlarına müdahale etmeyin.
+                // Çift ödeme oluşmaması için yeni bir otomatik satır da üretmeyin.
+                if (old is not null) duty.Expenses.Remove(old);
+                return;
+            }
+            if (old is null)
+            {
+                old = new ExpenseEntry { LineId = id };
+                duty.Expenses.Add(old);
+            }
+            old.Kind = kind;
+            old.Amount = TransferAmount(raw);
+            old.Description = label;
+            old.Evidence = "";
+            old.LegalBasis = legal;
+        }
+        var family = duty.FamilyCount;
+        var fare = duty.TravelFarePerPerson ?? 0m;
+        SetLine(DraftLineKind.DailyAllowance, "SG", rate,
+            "Personel seyahat gündeliği (1 gün)", "6245 m.43");
+        SetLine(DraftLineKind.FamilyDaily, "AG", family * rate,
+            "Aile seyahat gündeliği (1 gün / kişi)", "6245 m.44");
+        SetLine(DraftLineKind.TicketOrTravel, "ST", fare,
+            "Personel taşıt bedeli", "6245 m.27");
+        SetLine(DraftLineKind.FamilyTravel, "AT", family * fare,
+            "Aile taşıt bedeli (eşit ücret varsayımı)", "6245 m.44");
     }
 
     private WorkspaceRecords CurrentWorkspace() => new()
@@ -376,85 +545,137 @@ public partial class MainWindow
 
     private void ResultsPage(bool home)
     {
-        Page.Children.Add(Text(home ? "Ana Sayfa" : "Hesapla · sonuçlar", 28));
+        Page.Children.Add(Text(home ? "Hesap Arşivi" : "Hesaplama Sonucu", 28));
+
+        // Girişten Hesapla'ya geçildiğinde görev henüz kaydedilmemiştir.
+        // Sonuç burada gösterilir; kullanıcı Kaydet / PDF oluştur ile karar verir.
+        if (!home && _pendingDuty is not null && _pendingPerson is not null)
+        {
+            RenderCalculationCards(_pendingDuty, _pendingPerson, pending: true);
+            return;
+        }
+
         var records = _vm.Duties.Where(d => d.Snapshot?.Amount is not null)
             .OrderByDescending(d => d.Snapshot!.CreatedAt).ToArray();
-        var first = records.Length > 0 ? EntryRow() : default;
-        var summary = Card(home ? "Hesap arşivi" : "Hesaplanan görevler", first.Left);
-        if (home)
-        {
-            var metrics = new UniformGrid { Columns = 3, Margin = new(0, 0, 0, 12) };
-            metrics.Children.Add(Metric("Hesaplanan kayıt", records.Length.ToString(Tr)));
-            metrics.Children.Add(Metric("Geçici görev", records.Count(d => d.Kind == DraftKind.TemporaryDuty).ToString(Tr)));
-            metrics.Children.Add(Metric("Sürekli görev", records.Count(d => d.Kind == DraftKind.PermanentDuty).ToString(Tr)));
-            summary.Children.Add(metrics);
-        }
         if (records.Length == 0)
         {
-            summary.Children.Add(Text("Henüz hesaplanmış görev yok."));
-            Button(summary, "Veri girişine git", () => Navigation.SelectedIndex = 1);
+            var empty = Card("Yeni yolluk hesabı");
+            empty.Children.Add(Text("Henüz hesaplanmış kayıt yok. Girişleri tamamlayıp Hesapla'ya basın."));
+            Button(empty, "Veri girişine git", () => Navigation.SelectedIndex = 1);
             return;
         }
 
         var selected = records.Contains(_vm.SelectedDuty) ? _vm.SelectedDuty! : records[0];
         _vm.SelectedDuty = selected;
-        var picker = new ComboBox { ItemsSource = records, SelectedItem = selected };
+        var selection = Card("Kayıtlı Hesaplar");
+        var picker = new ComboBox
+        {
+            ItemsSource = records,
+            SelectedItem = selected,
+            Style = (Style)FindResource("HakedisFieldCombo")
+        };
         AutomationProperties.SetName(picker, "Hesaplanmış görev");
-        summary.Children.Add(new Label { Content = "Görev Seçimi" });
-        summary.Children.Add(picker);
+        selection.Children.Add(new Label
+        {
+            Content = "Hesaplanan görev",
+            Style = (Style)FindResource("HakedisFieldLabel")
+        });
+        selection.Children.Add(picker);
         picker.SelectionChanged += (_, _) =>
         {
             if (picker.SelectedItem is not DutyRecord duty) return;
             _vm.SelectedDuty = duty;
             ShowPage();
         };
+        RenderCalculationCards(selected, Person(selected), pending: false);
+    }
 
-        var snapshot = selected.Snapshot!;
-        var person = Person(selected);
-        var current = Service.IsCurrent(person, selected);
-        var calculation = Card(person.FullName, first.Right);
-        calculation.Children.Add(Text(selected.Kind == DraftKind.TemporaryDuty ? "Geçici görev · ön hesap" : "Sürekli görev · yer değiştirme"));
-        var figures = new UniformGrid { Columns = 2, Margin = new(0, 0, 0, 12) };
-        figures.Children.Add(Metric("Ham ön hesap", Money(snapshot.Amount)));
-        figures.Children.Add(Metric("Gündelik", Money(snapshot.DailyRate)));
-        calculation.Children.Add(figures);
-        foreach (var part in snapshot.Components ?? [])
-            calculation.Children.Add(Text($"{part.Label} · {Money(part.Amount)}"));
-        calculation.Children.Add(Text(snapshot.Explanation));
-        calculation.Children.Add(Text(snapshot.LegalBasis + " · " + snapshot.TariffReference));
-        if (!current) calculation.Children.Add(Text("Eski hesap. Güncel bilgilerle yeniden kaydedin."));
+    private void RenderCalculationCards(DutyRecord selected, PersonnelRecord person, bool pending)
+    {
+        var snapshot = selected.Snapshot ??
+            throw new InvalidOperationException("Hesaplama sonucu mevcut değil.");
+        var decision = Service.PrepareCalculationPdf(person, selected);
+        var totals = selected.Expenses.Count == 0 ? null :
+            GorevYolluklari.Core.Rules.YollukOdemeOzeti2026.Hesapla(selected.Expenses, selected.Advance);
+
+        var summary = Card(pending ? "Hesaplama Hazır · Henüz Kaydedilmedi" : "Yolluk Hesap Özeti");
+        summary.Children.Add(Text(
+            selected.Kind == DraftKind.TemporaryDuty
+                ? "YURT İÇİ GEÇİCİ GÖREV · 2026"
+                : "YURT İÇİ SÜREKLİ GÖREV · 2026", 12));
+        var metrics = new UniformGrid { Columns = 3, Margin = new(0, 5, 0, 12) };
+        metrics.Children.Add(Metric("Yolluk Toplamı", Money(totals?.Brut)));
+        metrics.Children.Add(Metric("Damga Vergisi", Money(totals?.DamgaVergisi)));
+        metrics.Children.Add(Metric("Hesaplanan Ödeme", Money(totals?.Net)));
+        summary.Children.Add(metrics);
+        if (selected.Advance > 0m)
+            summary.Children.Add(Text("Düşülen avans: " + Money(selected.Advance), 12));
+        if (pending)
+            summary.Children.Add(Text("Bu hesap yalnız önizlemedir. Kaydet / PDF oluştur'a basılmadan diske yazılmaz.", 12));
+
+        var (left, right) = EntryRow();
+        var details = Card("Gider Kalemleri", left);
+        if (selected.Expenses.Count == 0)
+            details.Children.Add(Text("Bu hesaba ait gider bulunamadı."));
+        foreach (var expense in selected.Expenses)
+        {
+            var line = new Grid { Margin = new(0, 4, 0, 4) };
+            line.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            line.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var description = new TextBlock
+            {
+                Text = expense.Description, TextWrapping = TextWrapping.Wrap,
+                Foreground = Brushes.LightSteelBlue, Margin = new(0, 2, 10, 2)
+            };
+            var price = new TextBlock
+            {
+                Text = Money(expense.Amount), Foreground = (Brush)FindResource("HakedisGoldBrush"),
+                FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center
+            };
+            System.Windows.Controls.Grid.SetColumn(price, 1);
+            line.Children.Add(description);
+            line.Children.Add(price);
+            details.Children.Add(line);
+            details.Children.Add(new Separator { Background = (Brush)FindResource("HakedisLineBrush"),
+                Margin = new(0, 4, 0, 4) });
+        }
+
+        var information = Card("Hesap Bilgileri", right);
+        information.Children.Add(Text("Gündelik tarifesi · " + Money(snapshot.DailyRate), 13));
+        information.Children.Add(Text("Dayanak · " + snapshot.LegalBasis + " · " +
+            snapshot.TariffReference, 12));
+        information.Children.Add(Text(snapshot.Explanation, 12));
+        if (selected.Kind == DraftKind.PermanentDuty)
+            information.Children.Add(Text(
+                "Ön hesap varsayımı: Seyahat gündeliği 1 gün ve kişi başına taşıt ücreti eşittir.", 12));
         if (snapshot.RuleVersion.StartsWith("SIM-", StringComparison.Ordinal))
-            calculation.Children.Add(Text("Simülasyon · düzenlenmiş sabitler kullanıldı."));
+            information.Children.Add(Text("Simülasyon değerleri: PDF üretilemez.", 12));
+        if (!pending && !Service.IsCurrent(person, selected))
+            information.Children.Add(Text("Bu kayıt güncel değil. Hesap bilgilerini yeniden kontrol edin.", 12));
+        if (!decision.MayPrintDraft)
+        {
+            var error = Text(decision.Reason, 12);
+            error.Foreground = Brushes.LightCoral;
+            information.Children.Add(error);
+        }
+        else
+            information.Children.Add(Text("Hesaplama PDF'si için tutar kontrolleri başarılı.", 12));
 
-        var second = EntryRow();
-        var identity = Card("Personel ve güzergâh", second.Left);
-        identity.Children.Add(Text($"{person.Title} · {person.Institution}"));
-        var dates = selected.Kind == DraftKind.PermanentDuty ? $"{selected.Departure:dd.MM.yyyy}"
-            : $"{selected.Departure:dd.MM.yyyy} – {selected.Return:dd.MM.yyyy}";
-        identity.Children.Add(Text($"{selected.Origin} → {selected.Destination}  ·  {dates}"));
-
-        var review = Service.PrepareDraft(person, selected);
-        var document = Card("Belge durumu", second.Right);
-        if (review.MayPrintDraft) document.Children.Add(Text("Kontrol taslağı oluşturulabilir."));
+        // İşlemler yalnız bu panelde bulunur; veri girişinde kayıt/PDF düğmesi yoktur.
+        var actions = new WrapPanel { Margin = new(0, 4, 0, 12) };
+        Page.Children.Add(actions);
+        if (pending)
+        {
+            Button(actions, "Sil", DiscardPendingCalculation);
+            Button(actions, "Düzenle", EditPendingCalculation);
+            Button(actions, "Kaydet / PDF oluştur", SavePendingAndMakePdf).IsEnabled = decision.MayPrintDraft;
+        }
         else
         {
-            var reason = Text(review.Reason);
-            reason.Foreground = Brushes.LightCoral;
-            document.Children.Add(reason);
-            Button(document, "PDF eksiklerini aç", () => OpenPdfIssues(selected, review.Reason));
+            Button(actions, "Sil", () => DeleteDuty(selected));
+            Button(actions, "Düzenle", () => OpenEntry(selected));
+            Button(actions, "PDF oluştur", () => MakePdf(selected)).IsEnabled = decision.MayPrintDraft;
         }
-        if (selected.Expenses.Count > 0)
-        {
-            foreach (var row in selected.Expenses)
-                document.Children.Add(Text($"{row.Description} · {Money(row.Amount)}"));
-        }
-        if (review.Document is { } draft)
-            document.Children.Add(Text($"Brüt {Money(draft.GrossTry)} · Avans {Money(draft.AdvanceTry)} · Net {Money(draft.NetTry)}"));
-        var actions = new WrapPanel();
-        Page.Children.Add(actions);
-        Button(actions, "Sil", () => DeleteDuty(selected));
-        Button(actions, "Düzenle", () => OpenEntry(selected));
-        Button(actions, "PDF", () => MakePdf(selected)).IsEnabled = review.MayPrintDraft;
     }
 
     private static string Money(decimal? amount) => amount is decimal value ? value.ToString("N2", Tr) + " TL" : "—";

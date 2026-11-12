@@ -1,0 +1,56 @@
+name: Windows yolluk build and calculators
+on:
+  push:
+    branches:
+      - sadelestirme-bildirim-27-28-2026
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-checks:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Derle
+        run: dotnet build .\GorevYolluklari.slnx -c Release
+      - name: Kanun ve sayisal kurallar
+        if: ${{ !cancelled() }}
+        run: dotnet run --project .\tests\GorevYolluklari.RuleChecks -c Release
+      - name: Iki ayri cekirdek / H cetveli
+        if: ${{ !cancelled() }}
+        run: dotnet run --project .\tests\GorevYolluklari.ModuleChecks -c Release -- "$env:GITHUB_WORKSPACE"
+      - name: Kayit ve PDF is akisi
+        if: ${{ !cancelled() }}
+        run: dotnet run --project .\tests\GorevYolluklari.WorkflowChecks -c Release -- "$env:GITHUB_WORKSPACE"
+      - name: Belge modeli
+        if: ${{ !cancelled() }}
+        run: dotnet run --project .\tests\GorevYolluklari.DocumentChecks -c Release
+      - name: PDF uretilir
+        if: ${{ !cancelled() }}
+        run: dotnet run --project .\tests\GorevYolluklari.PdfChecks -c Release -- "$env:RUNNER_TEMP\YollukPdfOrnekleri"
+      - name: WPF gorsel ve madde paneli
+        if: ${{ !cancelled() }}
+        run: dotnet run --project .\tests\GorevYolluklari.UiChecks -c Release -- "$env:GITHUB_WORKSPACE" "$env:RUNNER_TEMP\YollukUi"
+      - name: Gerçek Örnek 27 ve 28 PDF çıktılarını sakla
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yolluk-ornek27-28-pdf
+          path: ${{ runner.temp }}\YollukPdfOrnekleri\**\*.pdf
+          if-no-files-found: ignore
+      - name: UI goruntulerini sakla
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yolluk-ui-screens
+          path: ${{ runner.temp }}\YollukUi\*.png
+          if-no-files-found: ignore

@@ -42,6 +42,12 @@ Alanları gerçek aktarımda **sekme** karakteriyle ayırın. Türler: Gündelik
 
 XLSX ver ile uygulamanın `YOLLUK-GIDER-V1` değer şablonunu oluşturun. XLSX al bu sürümlü şablonu okur; genel amaçlı Excel dosyalarını, formülleri ve makroları kabul etmez. Excel.exe/Interop ve ek paket gerekmez.
 
+## Örnek 27/28 odaklı sade ekran (çalışma dalı)
+
+Geçici ve sürekli görev bildirimleri için yalnız ilgili gider düğmeleri gösterilir; brüt, binde 7,59 damga vergisi, avans ve **tahmini** net aynı özet ekranına eklenmiştir. Tek günlük görevde çok günlük inceleme kartı görünmez. Geçmiş kayıtlar ve hesap motorları korunur.
+
+Gönderilen beş gerçek belgeyle yapılan sayısal karşılaştırmalar ve tamamlanmamış kabul adımları için [Örnek 27/28 sadeleştirme notu](docs/BILDIRIM_27_28_SADELESTIRME_2026-11-12.md). Bu çalışma dalında Windows/.NET 10 derlemesi ve yeni testler henüz yürütülmemiştir. Üretilen PDF yalnız **kontrol taslağıdır**, onaylı resmî form değildir.
+
 ## Testler
 
 ```powershell

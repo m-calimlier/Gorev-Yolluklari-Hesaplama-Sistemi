@@ -40,6 +40,40 @@ void Blocked(DraftDocumentRequest request, DraftDecisionStatus? status=null)
     if (status is not null) Require(r.Status == status, $"Beklenen: {status}, alınan: {r.Status}");
 }
 
+Test("Hesaplama PDF'si ikinci toplam veya inceleme beyanı istemez", ()=>{
+    var req = Temporary() with
+    {
+        AssignmentAndStationReviewed = false, EntitlementAndAmountsReviewed = false,
+        AssignmentEvidence = "", StationEvidence = "", IndependentGrossTry = 0m,
+        IndependentNetTry = 0m, AdvanceTry = 0m, AdvanceEvidence = "",
+        Lines = new[] { Daily(850m) with { EvidenceReference = "" } }
+    };
+    var calculated = DraftDocumentService.CreateCalculationCopy(req);
+    Require(calculated.MayPrintDraft && calculated.Document is { IsCalculationOutput: true }, calculated.Reason);
+    Require(!calculated.Document!.IsOfficialPaymentDocument &&
+        calculated.Document.GrossTry == 850m && calculated.Document.NetTry == 850m);
+});
+Test("Hesaplama çıktısında unvan ve kurum isteğe bağlıdır", ()=>{
+    var req = Temporary() with {
+        PersonnelTitle = "", Institution = "",
+        AssignmentAndStationReviewed = false, EntitlementAndAmountsReviewed = false,
+        IndependentGrossTry = 0m, IndependentNetTry = 0m
+    };
+    Require(DraftDocumentService.CreateCalculationCopy(req).MayPrintDraft);
+    Require(!DraftDocumentService.Create(req).MayPrintDraft);
+});
+Test("Hesaplama PDF'si negatif veya kuruş altı gideri kabul etmez", ()=>{
+    var req=Temporary() with { Lines=new[]{Daily(-1m)}, IndependentGrossTry=0m, IndependentNetTry=0m };
+    Require(!DraftDocumentService.CreateCalculationCopy(req).MayPrintDraft);
+    req=req with{ Lines=new[]{Daily(850.001m)} };
+    Require(!DraftDocumentService.CreateCalculationCopy(req).MayPrintDraft);
+});
+Test("Hesaplama PDF'si avans brütten fazla olursa reddeder", ()=>{
+    var req=Temporary() with { Lines=new[]{Daily(850m)}, AdvanceTry=851m,
+        IndependentGrossTry=0m, IndependentNetTry=0m };
+    Require(!DraftDocumentService.CreateCalculationCopy(req).MayPrintDraft);
+});
+
 Test("Geçici görev taslak kabul", ()=>Accepted(Temporary()));
 Test("Sürekli görev taslak kabul", ()=>Accepted(Permanent()));
 Test("Brüt 1.575,50", ()=>Require(DraftDocumentService.Create(Temporary()).Document?.GrossTry==1575.50m));

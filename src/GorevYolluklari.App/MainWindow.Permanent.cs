@@ -1,124 +1,329 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
 using GorevYolluklari.Core.Documents;
 using GorevYolluklari.Core.Records;
+using GorevYolluklari.Core.Rules;
+using GorevYolluklari.Core.Tariffs;
 
 namespace GorevYolluklari.App;
 
 public partial class MainWindow
 {
-    private enum PermanentStep { Person, Assignment, Result }
-    private PermanentStep _permanentStep;
     private CalculationSnapshot? _permanentPreview;
     private bool _permanentExpensesOpen;
+    private FrameworkElement? _permanentCalculatedArea;
+    private TextBlock? _permanentResultHint;
+    private ScrollViewer? _entryBoardScroll;
 
     private void ResetPermanentStep()
     {
-        _permanentStep = PermanentStep.Person;
         _permanentPreview = null;
         _permanentExpensesOpen = false;
+        _permanentCalculatedArea = null;
+        _permanentResultHint = null;
     }
 
-    private void ShowPermanentProgress()
+    // Tek bir üç kartlı düzen, iki görev türünde de kullanılır.
+    // Dış sayfa yalnız dikey; kartların kaydırması yalnız yataydır.
+    private (StackPanel Person, StackPanel Task, StackPanel Result) BuildThreeCardWorkspace(
+        string taskTitle, string personTitle = "1 · Kişi", string thirdTitle = "3 · Sonuç")
     {
-        var labels = new[] { "1 · Kişi", "2 · Atama Ve Güzergâh", "3 · Sonuç" };
-        var steps = new WrapPanel { Margin = new(0, 0, 0, 14) };
-        for (var index = 0; index < labels.Length; index++)
+        var board = new Grid { MinWidth = 1140 };
+        board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+        board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.08, GridUnitType.Star) });
+        board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+        board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.08, GridUnitType.Star) });
+
+        var holders = Enumerable.Range(0, 3).Select(_ => new Grid()).ToArray();
+        for (var i = 0; i < holders.Length; i++)
         {
-            var active = index == (int)_permanentStep;
-            steps.Children.Add(new Border
-            {
-                Background = (Brush)FindResource(active ? "Gold" : "Card"),
-                Padding = new(12, 8, 12, 8),
-                CornerRadius = new(7),
-                Margin = new(0, 0, 8, 4),
-                Child = new TextBlock { Text = labels[index], FontWeight = FontWeights.SemiBold,
-                    Foreground = active ? (Brush)FindResource("Navy") : Brushes.LightSteelBlue }
-            });
+            System.Windows.Controls.Grid.SetColumn(holders[i], i * 2);
+            board.Children.Add(holders[i]);
         }
-        Page.Children.Add(steps);
+
+        var boardScroll = new ScrollViewer
+        {
+            Content = board,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Visible,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            CanContentScroll = false,
+            HorizontalAlignment = HorizontalAlignment.Left
+        };
+        // StackPanel kendi içeriğini sonsuz genişlikte ölçtüğünden scrollbar daha önce
+        // gerçek bir viewport alamıyordu. Dış viewport genişliğine sabitle.
+        boardScroll.SetBinding(FrameworkElement.WidthProperty,
+            new Binding(nameof(ScrollViewer.ViewportWidth)) { Source = PageScroll });
+        boardScroll.SizeChanged += (_, _) =>
+            board.MinWidth = Math.Max(1140, boardScroll.ViewportWidth);
+
+        boardScroll.PreviewMouseWheel += (_, e) =>
+        {
+            if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
+                boardScroll.ScrollToHorizontalOffset(boardScroll.HorizontalOffset - e.Delta);
+            else
+                PageScroll.ScrollToVerticalOffset(PageScroll.VerticalOffset - e.Delta);
+            e.Handled = true;
+        };
+        // Dar ekranlarda ilk/orta/son kart arasında ekranın altında kaydırma
+        // çubuğunu aramadan geçiş. Geniş ekranda gereksiz yere görünmez.
+        var quickNav = new WrapPanel { Margin = new(0, 0, 0, 7), Visibility = Visibility.Collapsed };
+        var steps = new[] { "1 · Kişi", "2 · Görev", thirdTitle };
+        for (var i = 0; i < steps.Length; i++)
+        {
+            var step = i;
+            var jump = new Button
+            {
+                Content = steps[i],
+                Style = (Style)FindResource("HakedisSecondaryAction")
+            };
+            System.Windows.Automation.AutomationProperties.SetName(jump, "Git: " + steps[i]);
+            jump.Click += (_, _) =>
+            {
+                boardScroll.UpdateLayout();
+                var offset = step switch
+                {
+                    0 => 0d,
+                    1 => Math.Min(boardScroll.ScrollableWidth, board.ActualWidth / 3d),
+                    _ => boardScroll.ScrollableWidth
+                };
+                boardScroll.ScrollToHorizontalOffset(offset);
+            };
+            quickNav.Children.Add(jump);
+        }
+        void UpdateQuickNav() =>
+            quickNav.Visibility = boardScroll.ScrollableWidth > 8d ? Visibility.Visible : Visibility.Collapsed;
+        boardScroll.ScrollChanged += (_, _) => UpdateQuickNav();
+        boardScroll.Loaded += (_, _) => UpdateQuickNav();
+        Page.Children.Add(quickNav);
+        Page.Children.Add(boardScroll);
+        _entryBoardScroll = boardScroll;
+        return (
+            Card(personTitle, holders[0]),
+            Card(taskTitle, holders[1]),
+            Card(thirdTitle, holders[2]));
     }
 
-    private void BuildPermanentPerson()
+    private (StackPanel Left, StackPanel Right) BuildTwoCardInputWorkspace(string leftTitle, string rightTitle)
     {
-        var card = Card("Kişi");
-        card.Children.Add(Text("Mevcut kişiyi seçin veya yeni kişinin bilgilerini girin. Kaydedince atama adımı açılır.", 12));
-        BuildEntryPersonnel(card);
-        Button(Page, "Vazgeç", CancelEntry).HorizontalAlignment = HorizontalAlignment.Left;
-        RefreshEntryAvailability();
+        var grid = new Grid { MinWidth = 770 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.15, GridUnitType.Star) });
+        var left = new Grid();
+        var right = new Grid();
+        System.Windows.Controls.Grid.SetColumn(right, 2);
+        grid.Children.Add(left);
+        grid.Children.Add(right);
+        var scroll = new ScrollViewer
+        {
+            Content = grid, HorizontalScrollBarVisibility = ScrollBarVisibility.Visible,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            CanContentScroll = false
+        };
+        scroll.SetBinding(FrameworkElement.WidthProperty,
+            new Binding(nameof(ScrollViewer.ViewportWidth)) { Source = PageScroll });
+        scroll.SizeChanged += (_, _) => grid.MinWidth = Math.Max(770, scroll.ViewportWidth);
+        scroll.PreviewMouseWheel += (_, e) =>
+        {
+            if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
+                scroll.ScrollToHorizontalOffset(scroll.HorizontalOffset - e.Delta);
+            else
+                PageScroll.ScrollToVerticalOffset(PageScroll.VerticalOffset - e.Delta);
+            e.Handled = true;
+        };
+        var nav = new WrapPanel { Margin = new(0, 0, 0, 7) };
+        var first = new Button { Content = "1 · Tarife", Style = (Style)FindResource("HakedisSecondaryAction") };
+        var second = new Button { Content = "2 · Görev", Style = (Style)FindResource("HakedisSecondaryAction") };
+        first.Click += (_, _) => scroll.ScrollToLeftEnd();
+        second.Click += (_, _) => scroll.ScrollToRightEnd();
+        nav.Children.Add(first);
+        nav.Children.Add(second);
+        void RefreshNav() => nav.Visibility = scroll.ScrollableWidth > 8 ? Visibility.Visible : Visibility.Collapsed;
+        scroll.ScrollChanged += (_, _) => RefreshNav();
+        scroll.Loaded += (_, _) => RefreshNav();
+        Page.Children.Add(nav);
+        Page.Children.Add(scroll);
+        _entryBoardScroll = scroll;
+        return (Card(leftTitle, left), Card(rightTitle, right));
+    }
+
+    private void FocusResultCard()
+    {
+        if (_entryBoardScroll is null) return;
+        _entryBoardScroll.UpdateLayout();
+        _entryBoardScroll.ScrollToRightEnd();
+    }
+
+    private static int IndicatorGroup(int value) =>
+        value >= 8000 ? 8000 : value >= 6400 ? 6400 : value >= 3600 ? 3600 : 0;
+
+    // Yalnız arayüz düzeni sade: hesap makinesi için kimlik/atama günü uydurulmaz.
+    // 2026 H-Cetveli genel memur/hizmetli ile hesaplanır.
+    private void SetPermanentCalculationDefaults(DutyRecord duty)
+    {
+        var person = _formPerson!;
+        if (string.IsNullOrWhiteSpace(person.FullName))
+            person.FullName = "AD SOYAD BELİRTİLMEDİ";
+        if (person.Group == PersonnelTariffGroup.Unknown)
+            person.Group = PersonnelTariffGroup.GeneralCivilServant;
+        if (duty.Departure == default)
+            duty.Departure = new DateTime(2026, 1, 1);
+        ApplyPermanentStationFromRoute(duty);
+    }
+
+    // Seçilen il/ilçe kombinasyonu bir ÖN HESAP varsayımıdır. Aynı il/ilçe
+    // dışındaki mahalliyet istisnalarını ve hak sahipliğini memur değerlendirir.
+    private static void ApplyPermanentStationFromRoute(DutyRecord duty)
+    {
+        duty.Station = string.IsNullOrWhiteSpace(duty.Origin) ||
+                       string.IsNullOrWhiteSpace(duty.Destination)
+            ? DutyStationAssessment.Unknown
+            : string.Equals(duty.Origin, duty.Destination, StringComparison.OrdinalIgnoreCase)
+                ? DutyStationAssessment.Inside : DutyStationAssessment.Outside;
+    }
+
+    private void BuildPermanentBoard(DutyRecord duty)
+    {
+        SetPermanentCalculationDefaults(duty);
+        var person = _formPerson!;
+        var (tariff, route) = BuildTwoCardInputWorkspace(
+            "1 · Tarife ve Aile", "2 · Eski ve Yeni Görev Yeri");
+
+        tariff.Children.Add(Text("2026 genel memur/hizmetli tarifesi. Yalnız hesap için gerekli değerleri seçin.", 12));
+        tariff.Children.Add(new Label
+        {
+            Content = "Bütçe Dönemi",
+            Style = (Style)FindResource("HakedisFieldLabel")
+        });
+        CiteLastLabel(tariff, "Bütçe Dönemi", "H2026");
+        tariff.Children.Add(new Border
+        {
+            Style = (Style)FindResource("HakedisInfoCard"),
+            Child = new TextBlock
+            {
+                Text = "2026 (01 Ocak – 31 Aralık)",
+                Foreground = (Brush)FindResource("HakedisTextBrush"),
+                FontWeight = FontWeights.SemiBold
+            }
+        });
+
+        LegalChoice(tariff, "Aylık Kadro Derecesi", Enumerable.Range(1, 15),
+            person, nameof(person.Grade), "H2026");
+
+        var indicatorOptions = new[]
+        {
+            new Option(8000, "8000 ve üzeri"),
+            new Option(6400, "6400 – 7999"),
+            new Option(3600, "3600 – 6399"),
+            new Option(0, "3600 altı")
+        };
+        var indicator = new ComboBox
+        {
+            ItemsSource = indicatorOptions,
+            DisplayMemberPath = nameof(Option.Label),
+            SelectedValuePath = nameof(Option.Value),
+            Style = (Style)FindResource("HakedisFieldCombo")
+        };
+        System.Windows.Automation.AutomationProperties.SetName(indicator, "Ek Gösterge Grubu");
+        if (person.Indicator is int previousIndicator)
+            indicator.SelectedValue = IndicatorGroup(previousIndicator);
+        indicator.SelectionChanged += (_, _) =>
+        {
+            if (indicator.SelectedValue is not int group || person.Indicator == group) return;
+            person.Indicator = group;
+            Invalidate(person, nameof(person.Indicator));
+        };
+        tariff.Children.Add(new Label
+        {
+            Content = "Ek Gösterge Grubu",
+            Target = indicator,
+            Style = (Style)FindResource("HakedisFieldLabel")
+        });
+        CiteLastLabel(tariff, "Ek Gösterge Grubu", "H2026");
+        tariff.Children.Add(indicator);
+        RegisterIssue(nameof(person.Indicator), indicator, tariff);
+        LegalChoice(tariff, "Y.D.M. Değişken Unsuru", new[]
+        {
+            new Option(false, "Normal tayin / eş durumu (tam)"),
+            new Option(true, "Aynı güzergâhta atanan ikinci memur eş (%50)")
+        }, duty, nameof(duty.SpouseTransfer), "M45");
+        LegalField(tariff, "Aile Ferdi Sayısı (kendiniz hariç)", duty, nameof(duty.FamilyCount), "M45");
+
+        route.Children.Add(Text("Eski ve yeni görev yerini seçin. Aynı yer seçilirse yer değiştirme gideri hesaplanmaz.", 12));
+        var origin = new StackPanel();
+        var destination = new StackPanel();
+        route.Children.Add(origin);
+        route.Children.Add(destination);
+        AddRoute(origin, destination, duty);
+        LegalField(route, "Mesafe (km)", duty, nameof(duty.Kilometers), "M45");
+        Button(route, "K.G.M. mesafesini getir", () => _ = FillDistanceAsync(duty));
+        LegalField(route, "Taşıt Ücreti (1 kişi için TL, varsa)", duty,
+            nameof(duty.TravelFarePerPerson), "M27", "M44");
+
+        Button(route, "Hesapla", PreviewPermanent);
     }
 
     private void MoveToPermanentAssignment()
     {
         if (!PersonIsReady) throw new InvalidOperationException("Önce kişiyi kaydedin.");
-        _permanentStep = PermanentStep.Assignment;
         _permanentPreview = null;
         ShowPage();
-        Status.Text = "Atama ve güzergâh bilgilerini girin.";
+        Status.Text = "Kişi kaydedildi. Ortadaki Atama ve Güzergâh kartından devam edin.";
+        _taskStart?.Focus();
     }
 
-    private void BuildPermanentAssignmentActions()
+    // Sonuç yeniden hesaplanmadan eski rakamların ekranda kalmasını engeller.
+    private void InvalidatePermanentResult()
     {
-        var actions = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
-        Page.Children.Add(actions);
-        Button(actions, "Kişiye dön", () => { _permanentStep = PermanentStep.Person; ShowPage(); });
-        Button(actions, "Vazgeç", CancelEntry);
-        Button(actions, "Sonucu hesapla", PreviewPermanent);
+        if (_form?.Kind != DraftKind.PermanentDuty || _permanentPreview is null) return;
+        _permanentPreview = null;
+        if (_permanentCalculatedArea is not null)
+            _permanentCalculatedArea.Visibility = Visibility.Collapsed;
+        if (_permanentResultHint is not null)
+        {
+            _permanentResultHint.Text = "Bilgiler değişti. Güncel tutarlar için yeniden Sonucu hesapla düğmesine basın.";
+            _permanentResultHint.Visibility = Visibility.Visible;
+        }
     }
 
-    private void PreviewPermanent()
-    {
-        if (!PersonIsReady) throw new InvalidOperationException("Önce kişiyi kaydedin.");
-        var duty = Duty();
-        CheckFormIssues(DutyIssues(duty, _formPerson!, includeExpenses: false));
-        var preview = Service.Preview(_formPerson!, duty);
-        if (preview.Amount is null)
-            CheckFormIssues([("Departure", preview.Explanation)]);
-        _permanentPreview = preview;
-        _permanentStep = PermanentStep.Result;
-        ShowPage();
-        Status.Text = "Yer değiştirme ön hesabı hazır. Sonucu kaydedebilir veya giderlere geçebilirsiniz.";
-    }
+    private void PreviewPermanent() => CalculateToResults();
 
-    private void BuildPermanentResult(DutyRecord duty)
+    private void BuildPermanentResult(DutyRecord duty, StackPanel result)
     {
-        var preview = _permanentPreview ?? throw new InvalidOperationException("Önce sonucu hesaplayın.");
-        var row = EntryRow();
-        var result = Card("Yer değiştirme ön hesabı", row.Left);
-        result.Children.Add(Metric("Yer değiştirme", Money(preview.Amount)));
-        result.Children.Add(Text("Gündelik " + Money(preview.DailyRate)));
+        if (_permanentPreview is not { Amount: decimal relocation, DailyRate: decimal rate } preview)
+        {
+            result.Visibility = Visibility.Collapsed;
+            return;
+        }
+        _permanentResultHint!.Visibility = Visibility.Collapsed;
+        var selfTravelDay = rate; // 2026 hesaplama önizlemesi: 1 seyahat günü
+        var familyTravelDay = rate * duty.FamilyCount;
+        var ticket = duty.TravelFarePerPerson ?? 0m;
+        var personTicket = ticket;
+        var familyTicket = ticket * duty.FamilyCount;
+        // PDF satırları kuruşa ayrı ayrı yuvarlandığı için ekrandaki toplam da
+        // satır bazında aynı şekilde hesaplanır.
+        var total = TransferAmount(relocation) + TransferAmount(selfTravelDay) +
+            TransferAmount(familyTravelDay) + TransferAmount(personTicket) +
+            TransferAmount(familyTicket);
+        result.Children.Add(Metric("Yolluk Hesap Toplamı", Money(total)));
+        result.Children.Add(Text("Yer değiştirme gideri · " + Money(relocation), 12));
         foreach (var component in preview.Components ?? [])
-            result.Children.Add(Text($"{component.Label} · {Money(component.Amount)}"));
-        if (preview.Amount is > 0)
-            Button(result, "Yer değiştirmeyi giderlere aktar", () => TransferRelocation(duty, preview));
-
-        var assignment = Card("Kişi ve güzergâh", row.Right);
-        assignment.Children.Add(Text(_formPerson!.FullName));
-        assignment.Children.Add(Text($"{duty.Origin} → {duty.Destination}"));
-        assignment.Children.Add(Text($"{duty.Departure:dd.MM.yyyy} · {duty.Kilometers.ToString(Tr)} km · {duty.FamilyCount} aile ferdi"));
-        assignment.Children.Add(Text("Taşıt gideri, avans veya PDF gerekiyorsa alttaki bölümü açın.", 12));
-
-        var optional = new StackPanel { Margin = new(0, 10, 0, 0) };
-        var panel = Card("İsteğe bağlı gider ve belge işlemleri");
-        var expander = new Expander { Header = "Taşıt, Avans Ve PDF", Content = optional, IsExpanded = _permanentExpensesOpen,
-            Foreground = (Brush)FindResource("Gold") };
-        expander.Expanded += (_, args) =>
-        {
-            if (ReferenceEquals(args.OriginalSource, expander)) _permanentExpensesOpen = true;
-        };
-        expander.Collapsed += (_, args) =>
-        {
-            if (ReferenceEquals(args.OriginalSource, expander)) _permanentExpensesOpen = false;
-        };
-        panel.Children.Add(expander);
-        BuildDocumentFields(duty, optional);
-
-        var actions = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
-        Page.Children.Add(actions);
-        Button(actions, "Atama ve güzergâha dön", MoveToPermanentAssignment);
-        Button(actions, "Vazgeç", CancelEntry);
-        Button(actions, "Kaydet", SaveEntry);
+            result.Children.Add(Text("   " + component.Label + " · " + Money(component.Amount), 12));
+        result.Children.Add(Text("Personel seyahat gündeliği (1 gün) · " + Money(selfTravelDay), 12));
+        if (duty.FamilyCount > 0)
+            result.Children.Add(Text($"Aile seyahat gündeliği ({duty.FamilyCount} kişi / 1 gün) · " +
+                Money(familyTravelDay), 12));
+        if (ticket > 0m)
+            result.Children.Add(Text($"Taşıt gideri ({1 + duty.FamilyCount} kişi, eşit bilet varsayımı) · " +
+                Money(personTicket + familyTicket), 12));
+        result.Children.Add(Text(
+            "Ön hesap: Seyahat gündeliği 1 gün, varsa taşıt ücreti kişi başına eşit kabul edilmiştir. " +
+            "Farklı seyahat süreleri, indirimli aile biletleri ve memuriyet mahalli istisnaları kurumca incelenir.", 12));
     }
 
     private static string RelocationLineId(DutyRecord duty) => "OTO-YD-" + duty.Id.ToString("N");

@@ -13,7 +13,8 @@ public static class TabularExchange
     public static string KindName(DraftLineKind kind) => kind switch {
         DraftLineKind.DailyAllowance => "Gündelik", DraftLineKind.TicketOrTravel => "Yol",
         DraftLineKind.Accommodation => "Konaklama", DraftLineKind.FamilyDaily => "Aile gündeliği",
-        DraftLineKind.FamilyTravel => "Aile yol", DraftLineKind.Relocation => "Yer değiştirme", _ => throw new InvalidDataException("Gider türü geçersiz.") };
+        DraftLineKind.FamilyTravel => "Aile yol", DraftLineKind.Relocation => "Yer değiştirme",
+        DraftLineKind.OtherEligible => "Diğer", _ => throw new InvalidDataException("Gider türü geçersiz.") };
     public static List<ExpenseEntry> ParseExpenses(string text)
     {
         if (text.Length > 1_000_000) throw new InvalidDataException("Aktarım boyutu çok büyük.");

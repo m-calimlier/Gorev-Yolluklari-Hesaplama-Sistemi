@@ -28,22 +28,30 @@ public partial class MainWindow
 
     private void AddRoute(Panel left, Panel right, DutyRecord duty)
     {
-        AddPlace(left, "Çıkış", duty.Origin, place => RouteChanged(duty, true, place));
-        AddPlace(right, "Varış", duty.Destination, place => RouteChanged(duty, false, place));
+        AddPlace(left, "Çıkış", duty.Origin, place => RouteChanged(duty, true, place),
+            duty.Kind == DraftKind.PermanentDuty);
+        AddPlace(right, "Varış", duty.Destination, place => RouteChanged(duty, false, place),
+            duty.Kind == DraftKind.PermanentDuty);
     }
 
-    private void AddPlace(Panel parent, string label, string stored, Action<string> changed)
+    private void AddPlace(Panel parent, string label, string stored, Action<string> changed, bool permanent)
     {
         var selected = ParsePlace(stored);
         var province = new ComboBox { ItemsSource = ProvinceCatalog.Value, DisplayMemberPath = nameof(Province.Name), SelectedValuePath = nameof(Province.Name),
-            SelectedItem = ProvinceCatalog.Value.FirstOrDefault(p => p.Name == selected?.Province) };
+            SelectedItem = ProvinceCatalog.Value.FirstOrDefault(p => p.Name == selected?.Province),
+            Style = (Style)FindResource("HakedisFieldCombo") };
         var district = new ComboBox { ItemsSource = (province.SelectedItem as Province)?.Districts,
-            SelectedItem = selected?.District, IsEnabled = province.SelectedItem is not null };
+            SelectedItem = selected?.District, IsEnabled = province.SelectedItem is not null,
+            Style = (Style)FindResource("HakedisFieldCombo") };
         AutomationProperties.SetName(province, label + " ili");
         AutomationProperties.SetName(district, label + " ilçesi");
-        parent.Children.Add(new Label { Content = Heading(label + " ili"), Target = province });
+        parent.Children.Add(new Label { Content = Heading(label + " ili"), Target = province,
+            Style = (Style)FindResource("HakedisFieldLabel") });
+        CiteLastLabel(parent, label + " ili", permanent ? "M45" : "M14");
         parent.Children.Add(province);
-        parent.Children.Add(new Label { Content = Heading(label + " ilçesi"), Target = district });
+        parent.Children.Add(new Label { Content = Heading(label + " ilçesi"), Target = district,
+            Style = (Style)FindResource("HakedisFieldLabel") });
+        CiteLastLabel(parent, label + " ilçesi", permanent ? "M45" : "M14");
         parent.Children.Add(district);
         RegisterIssue(label == "Çıkış" ? "Origin" : "Destination", district, parent);
         var previous = Text(selected is null && !string.IsNullOrWhiteSpace(stored) ? "Kayıtlı yer: " + stored : "", 12);
@@ -72,6 +80,8 @@ public partial class MainWindow
         if (previous == place) return;
         if (origin) duty.Origin = place;
         else duty.Destination = place;
+        if (duty.Kind == DraftKind.PermanentDuty)
+            ApplyPermanentStationFromRoute(duty);
         Invalidate(duty, origin ? nameof(duty.Origin) : nameof(duty.Destination));
         CancelDistance();
         if (duty.Kind != DraftKind.PermanentDuty) return;
@@ -111,7 +121,7 @@ public partial class MainWindow
             if (!ReferenceEquals(request, _distanceRequest) || duty.Kilometers != initialDistance || duty.DistanceEvidence != initialEvidence)
                 return;
 
-            var uncommittedDistance = DistanceField("Kaynaklı kilometre");
+            var uncommittedDistance = DistanceField("Mesafe (km)");
             var uncommittedEvidence = DistanceField("KGM / mesafe kanıtı");
             if ((uncommittedDistance?.IsKeyboardFocusWithin == true &&
                     uncommittedDistance.Text != initialDistance.ToString(Tr)) ||
@@ -122,7 +132,7 @@ public partial class MainWindow
             duty.DistanceEvidence = $"KGM İlçeler Arası Mesafe · {from} → {to} · {DateTime.Today:dd.MM.yyyy}";
             Invalidate(duty, nameof(duty.Kilometers));
             UpdateDistanceFields();
-            Status.Text = $"KGM mesafesi: {km} km. Mesafe ve güzergâhı inceleyin.";
+            Status.Text = $"KGM mesafesi getirildi: {km} km.";
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or
                                     InvalidDataException or JsonException or System.Text.RegularExpressions.RegexMatchTimeoutException)
@@ -131,7 +141,7 @@ public partial class MainWindow
             var reason = !NetworkInterface.GetIsNetworkAvailable() ? "İnternet bağlantısı yok."
                 : ex is InvalidDataException or JsonException ? "KGM bu güzergâh için doğrulanabilir mesafe döndürmedi."
                 : "KGM'ye ulaşılamadı. İnternet bağlantınızı kontrol edin.";
-            Status.Text = reason + " Mesafeyi ve dayanağını elle girin.";
+            Status.Text = reason + " Mesafeyi elle girebilirsiniz.";
             _dialog(Status.Text, "KGM mesafe sorgusu", MessageBoxButton.OK);
         }
         finally
@@ -145,7 +155,7 @@ public partial class MainWindow
 
     private void UpdateDistanceFields()
     {
-        DistanceField("Kaynaklı kilometre")?.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+        DistanceField("Mesafe (km)")?.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
         DistanceField("KGM / mesafe kanıtı")?.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
     }
 
