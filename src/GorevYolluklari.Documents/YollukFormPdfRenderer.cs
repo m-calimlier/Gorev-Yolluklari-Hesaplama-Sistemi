@@ -299,9 +299,10 @@ internal static class YollukFormPdfRenderer
     private static void DrawTotals(XGraphics g,double[] c,string[] totals,int rowIndex)
     {
         var y=TableRowY(rowIndex);
-        for(int i=0;i<totals.Length;i++)
+        // İlk beş sütun tek hücre: metnin üstünden dikey çizgiler geçmez.
+        Rect(g,c[0],y,c[5]-c[0],28,Faint,Stroke);
+        for(int i=5;i<totals.Length;i++)
             Rect(g,c[i],y,c[i+1]-c[i],28,Faint,Stroke);
-        // Örnek 27/28 tablosu gibi sol başlık ilk sütunlara yayılsın.
         Txt(g,"G E N E L  T O P L A M  (TL)",7.6,true,
             c[0]+7,y+9,c[5]-c[0]-15,14);
         for(int i=5;i<totals.Length;i++)
