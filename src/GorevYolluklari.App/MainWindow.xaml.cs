@@ -305,7 +305,7 @@ public partial class MainWindow : Window
         result.Children.Add(calculated);
         if (_temporaryPreview is { Amount: decimal amount } preview)
         {
-            calculated.Children.Add(Metric("Gündelik hesabı", Money(amount)));
+            calculated.Children.Add(Metric("Görev tutarı", Money(amount)));
             calculated.Children.Add(Text("Tarife gündeliği " + Money(preview.DailyRate), 12));
             foreach (var part in preview.Components ?? [])
                 calculated.Children.Add(Text($"{part.Label} · {Money(part.Amount)}", 12));
