@@ -27,6 +27,20 @@ public sealed record DraftDocumentRequest(
     decimal AdvanceTry, string? AdvanceEvidence,
     decimal IndependentGrossTry, decimal IndependentNetTry, bool QuickTemporaryCalculator = false);
 
+/// <summary>
+/// Yalnız belge baskısına ait denetlenebilir hesap dökümü. Hukukî/tutar
+/// hesap motoru burada tekrar çalıştırılmaz. Eski PDF modelleri null kalabilir.
+/// </summary>
+public sealed record DraftPrintComponent(string Label, decimal AmountTry);
+public sealed record DraftPrintDetails(
+    int? Grade, int? Indicator, decimal? DailyRateTry,
+    int FamilyCount, decimal Kilometers, decimal? TravelFarePerPersonTry,
+    bool SecondCivilServantSpouse,
+    int OutboundDailyThirds, int OutboundTravelDays,
+    int ReturnDailyThirds, int ReturnTravelDays,
+    int WorkDays, int LodgingNights, decimal NightlyLodgingTry,
+    IReadOnlyList<DraftPrintComponent> Components);
+
 public sealed record DraftDocument(
     DraftKind Kind, string DocumentNumber, string PersonnelFullName,
     string PersonnelTitle, string Institution, string Origin, string Destination,
@@ -39,6 +53,7 @@ public sealed record DraftDocument(
     public bool IsOfficialPaymentDocument => false;
     public bool IsCalculationOutput { get; init; }
     public bool IsQuickTemporaryCalculation { get; init; }
+    public DraftPrintDetails? PrintDetails { get; init; }
     public string VisibilityNotice => IsCalculationOutput
         ? "YOLLUK HESAPLAMA ÇIKTISI - RESMİ ONAY BELGESİ DEĞİLDİR"
         : "KONTROL TASLAĞI - ÖDEME BELGESİ DEĞİLDİR";
