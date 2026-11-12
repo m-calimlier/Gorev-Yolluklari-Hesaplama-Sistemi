@@ -189,9 +189,9 @@ public sealed class TravelWorkflowService(string tariffPath, CalculationConstant
         var calculated = d.Kind == DraftKind.PermanentDuty || d.Departure.Date == d.Return.Date
             ? d.Snapshot.Amount
             : d.Snapshot.Components?.FirstOrDefault(x => x.Label == "Gündelik")?.Amount;
-        if (!d.QuickTemporaryEnabled && calculated is decimal raw && raw > 0m)
+        if (!d.QuickTemporaryEnabled && calculated is decimal computedRaw && computedRaw > 0m)
         {
-            var expected = decimal.Round(raw, 2, MidpointRounding.AwayFromZero);
+            var expected = decimal.Round(computedRaw, 2, MidpointRounding.AwayFromZero);
             var lines = d.Expenses.Where(x => x.Kind == itemKind).ToArray();
             if (lines.Length != 1 || lines[0].Amount != expected)
                 return new(DraftDecisionStatus.Inconsistent,
