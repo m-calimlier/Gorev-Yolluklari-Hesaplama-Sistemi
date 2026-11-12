@@ -36,10 +36,17 @@ jobs:
         run: dotnet run --project .\tests\GorevYolluklari.DocumentChecks -c Release
       - name: PDF uretilir
         if: ${{ !cancelled() }}
-        run: dotnet run --project .\tests\GorevYolluklari.PdfChecks -c Release
+        run: dotnet run --project .\tests\GorevYolluklari.PdfChecks -c Release -- "$env:RUNNER_TEMP\YollukPdfOrnekleri"
       - name: WPF gorsel ve madde paneli
         if: ${{ !cancelled() }}
         run: dotnet run --project .\tests\GorevYolluklari.UiChecks -c Release -- "$env:GITHUB_WORKSPACE" "$env:RUNNER_TEMP\YollukUi"
+      - name: Gerçek Örnek 27 ve 28 PDF çıktılarını sakla
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yolluk-ornek27-28-pdf
+          path: ${{ runner.temp }}\YollukPdfOrnekleri\**\*.pdf
+          if-no-files-found: ignore
       - name: UI goruntulerini sakla
         if: always()
         uses: actions/upload-artifact@v4
