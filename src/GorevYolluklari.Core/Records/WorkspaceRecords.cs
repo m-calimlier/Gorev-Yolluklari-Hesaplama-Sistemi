@@ -74,6 +74,20 @@ public sealed class DutyRecord
     public string Reviewer { get; set; } = "";
     public DateTimeOffset? ReviewedAt { get; set; }
     public bool FamilyReviewed { get; set; }
+    // Geçici görev için referans görüntüden uyarlanan kısa hesaplayıcı.
+    // False olan önceki görev kayıtları eski hesap mantığını korur.
+    public bool QuickTemporaryEnabled { get; set; }
+    public decimal QuickOutboundFare { get; set; }
+    // Gündelik payı: 0, 1, 2 veya 3 => 0, 1/3, 2/3, tam.
+    public int QuickOutboundThirds { get; set; }
+    public int QuickOutboundTravelDays { get; set; }
+    public decimal QuickReturnFare { get; set; }
+    public int QuickReturnThirds { get; set; }
+    public int QuickReturnTravelDays { get; set; }
+    public int QuickWorkDays { get; set; }
+    public int QuickLodgingNights { get; set; }
+    public decimal QuickLodgingDailyFare { get; set; }
+    public decimal QuickOtherExpenses { get; set; }
     public bool SpouseTransfer { get; set; }
     public int FamilyCount { get; set; }
     public decimal Kilometers { get; set; }
