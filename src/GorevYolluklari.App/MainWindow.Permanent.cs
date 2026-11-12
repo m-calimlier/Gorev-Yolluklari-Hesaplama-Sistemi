@@ -69,7 +69,7 @@ public partial class MainWindow
         AddRoute(origin, destination, duty);
         DateField(guarded, "Atama / işlem tarihi", duty, nameof(duty.Departure), withTime: false);
         Choice(guarded, "Memuriyet mahalli değerlendirmesi",
-            Enum.GetValues<DutyStationAssessment>(), duty, nameof(duty.Station));
+            Enum.GetValues<GorevYolluklari.Core.Rules.DutyStationAssessment>(), duty, nameof(duty.Station));
 
         guarded.Children.Add(Text("Aile ve mesafe", 16));
         Field(guarded, "Hak sahibi aile ferdi sayısı (personel hariç)", duty, nameof(duty.FamilyCount));
