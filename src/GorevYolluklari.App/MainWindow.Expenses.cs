@@ -85,10 +85,7 @@ public partial class MainWindow
         _expenseSummary.Foreground = (Brush)FindResource("Gold");
         card.Children.Add(Text("Bildirimdeki tutarlar", 20));
         card.Children.Add(_expenseSummary);
-        Button(card, "Bu toplam nasıl hesaplandı?", () => _dialog(
-            "Brüt, belgeli gider satırları toplamıdır. 2026 damga vergisi binde 7,59 oranıyla hesaplanır. " +
-            "Ödeme özeti tahminidir; resmî bordro için güncel mevzuat ve belge kontrolü gereklidir.",
-            "Gider özeti", MessageBoxButton.OK));
+        card.Children.Add(Text("Tutarlar program tarafından hesaplanır. Bağımsız brüt/net girişi ve belge inceleme onayı gerekmez.", 12));
 
         var advance = new StackPanel();
         card.Children.Add(new Expander { Header = "Avans Varsa Girin", Content = advance,
@@ -96,29 +93,6 @@ public partial class MainWindow
         Field(advance, "Avans TL", duty, nameof(duty.Advance));
         Field(advance, "Avans kanıtı", duty, nameof(duty.AdvanceEvidence));
 
-        var review = new StackPanel();
-        var details = new Expander
-        {
-            Header = "PDF İçin Son Tutar Kontrolü",
-            Content = review,
-            IsExpanded = duty.AmountsReviewed,
-            Foreground = (Brush)FindResource("Gold"),
-            Margin = new(0, 8, 0, 0)
-        };
-        card.Children.Add(details);
-        RegisterIssue("Expenses", details, card);
-        RegisterIssue("AmountsReviewed", details, card);
-        review.Children.Add(Text("PDF gerekiyorsa kurumunuzun ayrı kontrol kaydındaki iki toplamı girin. Program kaydederken otomatik karşılaştırır.", 12));
-        var totals = new UniformGrid { Columns = 2 };
-        review.Children.Add(totals);
-        var grossInput = new StackPanel();
-        var netInput = new StackPanel();
-        totals.Children.Add(grossInput);
-        totals.Children.Add(netInput);
-        Field(grossInput, "Bağımsız brüt TL", duty, nameof(duty.IndependentGross));
-        Field(netInput, "Bağımsız net TL", duty, nameof(duty.IndependentNet));
-        _expenseReviewStatus = Text("", 12);
-        review.Children.Add(_expenseReviewStatus);
         UpdateExpenseSummary(duty);
     }
 
@@ -223,31 +197,7 @@ public partial class MainWindow
     {
         if (_expenseSummary is not null)
             _expenseSummary.Text = ComputePaymentSummary(duty);
-        if (_expenseReviewStatus is null) return;
-        _expenseReviewStatus.Text = duty.AmountsReviewed ? "Belge ve tutar kontrolü tamamlandı." :
-            duty.IndependentGross is null || duty.IndependentNet is null ? "PDF için iki bağımsız tutar bekleniyor." :
-            string.Join(" ", DocumentIssues(duty, includeReview: false).Select(issue => issue.Message));
-        if (_expenseReviewStatus.Text.Length == 0)
-            _expenseReviewStatus.Text = "Tutarlar eşleşiyor. Kaydederken belge onayı istenecek.";
-    }
 
-    private void ReviewPdfOnSave(DutyRecord candidate, PersonnelRecord person)
-    {
-        if (candidate.AmountsReviewed || DocumentIssues(candidate, includeReview: false).Any()) return;
-        var preview = candidate.Snapshot;
-        candidate.AmountsReviewed = true;
-        candidate.ReviewedAt = DateTimeOffset.UtcNow;
-        candidate.Snapshot = Service.Preview(person, candidate);
-        var decision = Service.PrepareDraft(person, candidate);
-        if (decision.Document is { } document)
-        {
-            var message = $"Toplamlar eşleşti. Brüt {Money(document.GrossTry)}, avans {Money(document.AdvanceTry)}, net {Money(document.NetTry)}.\n\n" +
-                "Hak sahipliğini ve gider dayanaklarını kurum kayıtlarından kontrol ettiniz mi?";
-            if (_dialog(message, "Belge kontrolü", MessageBoxButton.YesNo) == MessageBoxResult.Yes) return;
-        }
-        candidate.AmountsReviewed = false;
-        candidate.ReviewedAt = null;
-        candidate.Snapshot = preview;
     }
 
     private void AddExpenseEditor(DutyRecord duty, ExpenseEntry entry, DraftLineKind[] kinds, StackPanel rows, TextBlock empty, bool open)
@@ -275,7 +225,15 @@ public partial class MainWindow
         var kind = calculated ? null : Choice(left, "Gider türü", kinds.Select(k => new Option(k, ExpenseLabel(k))).ToArray(),
             entry, nameof(entry.Kind));
         var amount = Field(right, "Gider tutarı (TL)", entry, nameof(entry.Amount));
-        Field(left, "Gider dayanağı", entry, nameof(entry.Evidence));
+        var supporting = new StackPanel();
+        body.Children.Add(new Expander
+        {
+            Header = "Belge dayanağı (isteğe bağlı)",
+            Content = supporting,
+            IsExpanded = !string.IsNullOrWhiteSpace(entry.Evidence),
+            Margin = new(0, 6, 0, 6)
+        });
+        Field(supporting, "Gider dayanağı", entry, nameof(entry.Evidence));
         if (calculated)
         {
             amount.IsReadOnly = true;
