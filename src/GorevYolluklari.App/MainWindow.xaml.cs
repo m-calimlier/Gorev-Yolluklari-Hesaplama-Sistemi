@@ -228,7 +228,8 @@ public partial class MainWindow : Window
 
     private DataGrid Grid(System.Collections.IEnumerable items, bool add)
     {
-        var grid = new DataGrid { ItemsSource = items, Height = 260, CanUserAddRows = add, Margin = new(0, 8, 0, 16) };
+        var grid = new DataGrid { ItemsSource = items, Height = 260, CanUserAddRows = add,
+            Style = (Style)FindResource("HakedisDataGrid"), Margin = new(0, 8, 0, 16) };
         grid.CellEditEnding += (_, e) => Invalidate(e.Row.Item); _editors.Add(grid); return grid;
     }
     private static void Col(DataGrid grid, string header, string path, double width, string? format = null) => grid.Columns.Add(new DataGridTextColumn {
