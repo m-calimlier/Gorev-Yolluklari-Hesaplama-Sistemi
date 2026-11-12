@@ -5,6 +5,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using GorevYolluklari.Core.Documents;
 using GorevYolluklari.Core.Records;
+using GorevYolluklari.Core.Rules;
 using Microsoft.Win32;
 using Exchange = GorevYolluklari.Application.TabularExchange;
 
