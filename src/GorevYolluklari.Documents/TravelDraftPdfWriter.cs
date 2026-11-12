@@ -36,8 +36,8 @@ public static class TravelDraftPdfWriter
             throw new InvalidDataException("Tutarsız veya resmî olarak işaretlenmiş taslak PDF üretilemez.");
         ValidateOutputPath(destinationPath);
         using var pdf = new PdfDocument();
-        pdf.Info.Title = $"KONTROL TASLAĞI - {document.RequiredFormCode}";
-        pdf.Info.Subject = "Ödeme belgesi değildir";
+        pdf.Info.Title = $"{(document.IsCalculationOutput ? "YOLLUK HESAPLAMA ÇIKTISI" : "KONTROL TASLAĞI")} - {document.RequiredFormCode}";
+        pdf.Info.Subject = "Yolluk hesabıdır; resmi onay belgesi değildir";
         pdf.Info.Creator = "Görev Yollukları Hesaplama Sistemi - Taslak Modülü";
         int pageCount = (document.Lines.Count + LinesPerPage - 1) / LinesPerPage;
         for (int pageNo = 0; pageNo < pageCount; pageNo++)
@@ -111,9 +111,12 @@ public static class TravelDraftPdfWriter
         DraftDocument doc, int pageNo, int pageCount)
     {
         var title = doc.Kind == DraftKind.TemporaryDuty
+            ? "YURT İÇİ GEÇİCİ GÖREV YOLLUĞU - Örnek 27 hesabı"
+            : "YURT İÇİ SÜREKLİ GÖREV YOLLUĞU - Örnek 28 hesabı";
+        if (!doc.IsCalculationOutput) title = doc.Kind == DraftKind.TemporaryDuty
             ? "YURT İÇİ GEÇİCİ GÖREV YOLLUĞU TASLAĞI - Örnek 27 alanları"
             : "YURT İÇİ SÜREKLİ GÖREV YOLLUĞU TASLAĞI - Örnek 28 alanları";
-        DrawPageTop(g, width, title, $"{doc.DocumentNumber} - {pageNo + 1}/{pageCount}");
+        DrawPageTop(g, width, title, $"{doc.DocumentNumber} - {pageNo + 1}/{pageCount}", doc.IsCalculationOutput);
         var normal = Font(9);
         var bold = Font(9, true);
         Text(g, "Kurum: " + doc.Institution, normal, Left, 103, 730);
@@ -144,19 +147,22 @@ public static class TravelDraftPdfWriter
         }
         var tax = decimal.Round(doc.GrossTry * YollukOdemeOzeti2026.DamgaVergisiOrani, 2, MidpointRounding.AwayFromZero);
         DrawFooter(g, width, height,
-            "Görev oluru: " + doc.AssignmentEvidence + " | Mahallî değerlendirme: " + doc.StationEvidence,
+            doc.IsCalculationOutput
+                ? "Girilen verilerden hesaplandı; hak sahipliği ve belgelerin incelemesi kurumca yapılır."
+                : "Görev oluru: " + doc.AssignmentEvidence + " | Mahallî değerlendirme: " + doc.StationEvidence,
             pageNo == pageCount - 1
                 ? $"2026 damga vergisi (binde 7,59): {Currency(tax)} TL | Tahmini ödenecek: {Currency(doc.NetTry - tax)} TL"
-                : null);
+                : null, doc.IsCalculationOutput);
     }
 
-    private static void DrawPageTop(XGraphics g, double width, string title, string detail)
+    private static void DrawPageTop(XGraphics g, double width, string title, string detail, bool calculationOutput = false)
     {
         g.DrawRectangle(new XSolidBrush(Navy), 0, 0, width, 68);
         Text(g, "GÖREV YOLLUKLARI", Font(10, true), Left, 12, width - 2 * Left, XBrushes.White);
         Text(g, title, Font(13, true), Left, 30, width - 2 * Left, XBrushes.White);
         g.DrawRectangle(new XSolidBrush(Light), Left, 71, width - 2 * Left, 25);
-        Text(g, "KONTROL TASLAĞI - ÖDEME BELGESİ DEĞİLDİR", Font(10, true), Left + 8, 76, 535,
+        Text(g, calculationOutput ? "YOLLUK HESAPLAMA ÇIKTISI - RESMİ ONAY DEĞİLDİR"
+                : "KONTROL TASLAĞI - ÖDEME BELGESİ DEĞİLDİR", Font(10, true), Left + 8, 76, 535,
             new XSolidBrush(Navy));
         Text(g, detail, Font(8), width - 280, 76, 240, new XSolidBrush(Navy));
     }
@@ -187,12 +193,15 @@ public static class TravelDraftPdfWriter
         Text(g, "Avans: " + advance, bold, 400, y+9, 185);
         Text(g, "Net: " + net, bold, 612, y+9, 180);
     }
-    private static void DrawFooter(XGraphics g, double width, double height, string note, string? payment = null)
+    private static void DrawFooter(XGraphics g, double width, double height, string note, string? payment = null, bool calculationOutput = false)
     {
         g.DrawLine(new XPen(Gold, 1.4), Left, height - 58, width - Right, height - 58);
-        Text(g, "ÖDEME BELGESİ DEĞİLDİR - İMZAYA / MUHASEBEYE SUNULAMAZ", Font(8, true), Left, height - 51, width-2*Left);
+        Text(g, calculationOutput ? "HESAPLAMA ÇIKTISI - RESMİ ÖDEME ONAYI DEĞİLDİR"
+            : "ÖDEME BELGESİ DEĞİLDİR - İMZAYA / MUHASEBEYE SUNULAMAZ", Font(8, true), Left, height - 51, width-2*Left);
         Text(g, note, Font(7), Left, height - 35, width - 2 * Left);
-        Text(g, payment ?? "Bu taslak Örnek 27/28'in onaylı sureti değildir; mevzuat ve belge kontrolü bekleniyor.",
+        Text(g, payment ?? (calculationOutput
+                ? "Hesaplama çıktısıdır; resmi Örnek 27/28 yerine geçmez."
+                : "Bu taslak Örnek 27/28'in onaylı sureti değildir; mevzuat ve belge kontrolü bekleniyor."),
             Font(7), Left, height - 23, width - 2 * Left);
     }
     private static string KindText(DraftLineKind kind) => kind switch
@@ -227,7 +236,8 @@ public static class TravelDraftPdfWriter
             !Money(document.GrossTry) || !Money(document.AdvanceTry) || !Money(document.NetTry) ||
             document.AdvanceTry > document.GrossTry || document.NetTry != document.GrossTry - document.AdvanceTry ||
             document.Lines.Any(x => x is null || !Enum.IsDefined(x.Kind) || !Money(x.AmountTry) || x.AmountTry <= 0 ||
-                string.IsNullOrWhiteSpace(x.LineId) || string.IsNullOrWhiteSpace(x.EvidenceReference) || string.IsNullOrWhiteSpace(x.LegalReference) ||
+                string.IsNullOrWhiteSpace(x.LineId) || (!document.IsCalculationOutput && string.IsNullOrWhiteSpace(x.EvidenceReference)) ||
+                string.IsNullOrWhiteSpace(x.LegalReference) ||
                 (document.Kind == DraftKind.TemporaryDuty && x.Kind is DraftLineKind.Relocation or DraftLineKind.FamilyDaily or DraftLineKind.FamilyTravel) ||
                 (document.Kind == DraftKind.PermanentDuty && x.Kind == DraftLineKind.Accommodation)) ||
             document.Lines.Select(x => x.LineId).Distinct().Count() != document.Lines.Count ||
