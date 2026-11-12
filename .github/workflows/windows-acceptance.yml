@@ -1,0 +1,43 @@
+name: Windows yolluk build and calculators
+on:
+  push:
+    branches:
+      - sadelestirme-bildirim-27-28-2026
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-checks:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Derle
+        run: dotnet build .\GorevYolluklari.slnx -c Release
+      - name: Kanun ve sayisal kurallar
+        run: dotnet run --project .\tests\GorevYolluklari.RuleChecks -c Release
+      - name: Iki ayri cekirdek / H cetveli
+        run: dotnet run --project .\tests\GorevYolluklari.ModuleChecks -c Release -- "$env:GITHUB_WORKSPACE"
+      - name: Kayit ve PDF is akisi
+        run: dotnet run --project .\tests\GorevYolluklari.WorkflowChecks -c Release -- "$env:GITHUB_WORKSPACE"
+      - name: Belge modeli
+        run: dotnet run --project .\tests\GorevYolluklari.DocumentChecks -c Release
+      - name: PDF uretilir
+        run: dotnet run --project .\tests\GorevYolluklari.PdfChecks -c Release
+      - name: WPF gorsel ve madde paneli
+        run: dotnet run --project .\tests\GorevYolluklari.UiChecks -c Release -- "$env:GITHUB_WORKSPACE" "$env:RUNNER_TEMP\YollukUi"
+      - name: UI goruntulerini sakla
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yolluk-ui-screens
+          path: ${{ runner.temp }}\YollukUi\*.png
+          if-no-files-found: ignore
