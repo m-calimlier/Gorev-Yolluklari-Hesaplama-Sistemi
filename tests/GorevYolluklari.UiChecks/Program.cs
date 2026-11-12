@@ -130,8 +130,8 @@ internal static class Program
             Pick("Statü", PersonnelTariffGroup.GeneralCivilServant);
             Pick("Derece", 5);
             Set("Ek gösterge", "0");
-            Click(FindButton("Kişiyi kaydet"));
-            Check("Personel tek sefer kaydedildi", repository.Load().Personnel.Count == 1);
+            Check("Kisi ayrica kaydedilmeden gorev girilebilir",
+                repository.Load().Personnel.Count == 0 && ChoiceBox("Çıkış ili").IsEnabled);
 
             SelectPlace("Çıkış", "ADANA", "ALADAĞ");
             SelectPlace("Varış", "ADANA", "CEYHAN");
@@ -151,6 +151,7 @@ internal static class Program
             Capture("Gecici_Yolluk_Sade", 1366, 768);
             Click(FindButton("Kaydet ve PDF oluştur"));
             var temporary = repository.Load().Duties.Single();
+            Check("Kisi PDF sirasinda otomatik kaydedildi", repository.Load().Personnel.Count == 1);
             Check("Gecici gorev otomatik gundelik satiri", temporary.Kind == DraftKind.TemporaryDuty &&
                 temporary.Expenses.Count == 1 && temporary.Expenses[0].Kind == DraftLineKind.DailyAllowance &&
                 temporary.Expenses[0].Amount == 566.67m);
