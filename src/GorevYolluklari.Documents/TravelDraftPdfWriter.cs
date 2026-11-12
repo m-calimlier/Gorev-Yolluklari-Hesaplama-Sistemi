@@ -1,6 +1,7 @@
 using System.IO;
 using System.Globalization;
 using GorevYolluklari.Core.Documents;
+using GorevYolluklari.Core.Rules;
 using PdfSharp;
 using PdfSharp.Drawing;
 using PdfSharp.Pdf;
@@ -141,7 +142,7 @@ public static class TravelDraftPdfWriter
             Text(g, "Avans: " + DraftDocumentService.Money(doc.AdvanceTry), bold, 305, y + 10, 215);
             Text(g, "Damga öncesi: " + DraftDocumentService.Money(doc.NetTry), bold, 545, y + 10, 255);
         }
-        var tax = decimal.Round(doc.GrossTry * 0.00759m, 2, MidpointRounding.AwayFromZero);
+        var tax = decimal.Round(doc.GrossTry * YollukOdemeOzeti2026.DamgaVergisiOrani, 2, MidpointRounding.AwayFromZero);
         DrawFooter(g, width, height,
             "Görev oluru: " + doc.AssignmentEvidence + " | Mahallî değerlendirme: " + doc.StationEvidence,
             pageNo == pageCount - 1
