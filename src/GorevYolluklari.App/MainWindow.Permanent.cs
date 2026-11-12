@@ -66,6 +66,37 @@ public partial class MainWindow
                 PageScroll.ScrollToVerticalOffset(PageScroll.VerticalOffset - e.Delta);
             e.Handled = true;
         };
+        // Dar ekranlarda ilk/orta/son kart arasında ekranın altında kaydırma
+        // çubuğunu aramadan geçiş. Geniş ekranda gereksiz yere görünmez.
+        var quickNav = new WrapPanel { Margin = new(0, 0, 0, 7), Visibility = Visibility.Collapsed };
+        var steps = new[] { "1 · Kişi", "2 · Görev", "3 · Sonuç" };
+        for (var i = 0; i < steps.Length; i++)
+        {
+            var step = i;
+            var jump = new Button
+            {
+                Content = steps[i],
+                Style = (Style)FindResource("HakedisSecondaryAction")
+            };
+            System.Windows.Automation.AutomationProperties.SetName(jump, "Git: " + steps[i]);
+            jump.Click += (_, _) =>
+            {
+                boardScroll.UpdateLayout();
+                var offset = step switch
+                {
+                    0 => 0d,
+                    1 => Math.Min(boardScroll.ScrollableWidth, board.ActualWidth / 3d),
+                    _ => boardScroll.ScrollableWidth
+                };
+                boardScroll.ScrollToHorizontalOffset(offset);
+            };
+            quickNav.Children.Add(jump);
+        }
+        void UpdateQuickNav() =>
+            quickNav.Visibility = boardScroll.ScrollableWidth > 8d ? Visibility.Visible : Visibility.Collapsed;
+        boardScroll.ScrollChanged += (_, _) => UpdateQuickNav();
+        boardScroll.Loaded += (_, _) => UpdateQuickNav();
+        Page.Children.Add(quickNav);
         Page.Children.Add(boardScroll);
         _entryBoardScroll = boardScroll;
         return (
@@ -109,7 +140,16 @@ public partial class MainWindow
         Button(guarded, "Sonucu hesapla", PreviewPermanent);
 
         _permanentResultHint = Text("Bilgileri girip Sonucu hesapla veya Kaydet ve PDF oluştur düğmesine basın.", 12);
-        result.Children.Add(_permanentResultHint);
+        _permanentResultHint.Style = (Style)FindResource("HakedisCardSubtitle");
+        _permanentResultHint.Margin = new(0);
+        var resultInformation = new Border
+        {
+            Style = (Style)FindResource("HakedisInfoCard"),
+            Child = _permanentResultHint
+        };
+        resultInformation.SetBinding(UIElement.VisibilityProperty,
+            new Binding(nameof(UIElement.Visibility)) { Source = _permanentResultHint });
+        result.Children.Add(resultInformation);
         _permanentCalculatedArea = new StackPanel();
         result.Children.Add(_permanentCalculatedArea);
         BuildPermanentResult(duty, (StackPanel)_permanentCalculatedArea);
