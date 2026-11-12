@@ -158,6 +158,7 @@ public partial class MainWindow
         _form = new DutyRecord
         {
             Kind = kind,
+            QuickTemporaryEnabled = kind == DraftKind.TemporaryDuty,
             PersonnelId = _formPerson.Id,
             Departure = default,
             Return = default,
@@ -316,6 +317,8 @@ public partial class MainWindow
     {
         if (_form?.Kind == DraftKind.PermanentDuty)
             SetPermanentCalculationDefaults(Duty());
+        if (_form?.Kind == DraftKind.TemporaryDuty && _form.QuickTemporaryEnabled)
+            SetQuickTemporaryDefaults(Duty());
         if (!PersonIsReady) SaveEntryPerson();
         if (!PersonIsReady) throw new InvalidOperationException("Kişi bilgilerini tamamlayın.");
         var person = _formPerson!;
@@ -337,11 +340,15 @@ public partial class MainWindow
         if (calculation.Amount is null)
             CheckFormIssues([(candidate.Kind == DraftKind.TemporaryDuty && candidate.Departure.Date != candidate.Return.Date
                 ? "ReviewedDays" : "Departure", calculation.Explanation)]);
-        SyncCalculatedExpense(candidate, calculation);
+        if (candidate.Kind == DraftKind.TemporaryDuty && candidate.QuickTemporaryEnabled)
+            SyncQuickTemporaryExpenses(candidate, calculation);
+        else
+            SyncCalculatedExpense(candidate, calculation);
         if (candidate.Kind == DraftKind.PermanentDuty)
             SyncPermanentQuickExpenses(candidate, calculation);
         candidate.Snapshot = service.PreviewForCalculation(person, candidate);
-        CheckFormIssues(CalculatedExpenseIssues(candidate, candidate.Snapshot));
+        if (!candidate.QuickTemporaryEnabled)
+            CheckFormIssues(CalculatedExpenseIssues(candidate, candidate.Snapshot));
         CheckFormIssues(ExpenseIssues(candidate));
         if (candidate.Advance < 0m || (candidate.Expenses.Count > 0 &&
                 candidate.Advance > candidate.Expenses.Sum(x => x.Amount)))
@@ -356,6 +363,43 @@ public partial class MainWindow
         Status.Text = "Görev ve hesap sonucu kaydedildi.";
         if (notify) _dialog("Görev ve hesap sonucu kaydedildi.", "Kayıt başarılı", MessageBoxButton.OK);
         Navigation.SelectedIndex = 2;
+    }
+
+    private static void SyncQuickTemporaryExpenses(DutyRecord duty, CalculationSnapshot preview)
+    {
+        var parts = preview.Components ?? [];
+        decimal Part(string name) => parts.FirstOrDefault(x => x.Label == name)?.Amount ?? 0m;
+        void Add(string key, DraftLineKind kind, decimal amount, string text, string basis)
+        {
+            var id = "OTO-" + key + "-" + duty.Id.ToString("N");
+            var current = duty.Expenses.FirstOrDefault(x => x.LineId == id);
+            if (amount <= 0m)
+            {
+                if (current is not null) duty.Expenses.Remove(current);
+                return;
+            }
+            if (current is null)
+            {
+                current = new ExpenseEntry { LineId = id };
+                duty.Expenses.Add(current);
+            }
+            current.Kind = kind;
+            current.Amount = TransferAmount(amount);
+            current.Description = text;
+            current.Evidence = "";
+            current.LegalBasis = basis;
+        }
+        Add("GQ", DraftLineKind.TicketOrTravel, Part("Gidiş ulaşım"),
+            "Gidiş ulaşım bedeli", "6245 m.14, m.27");
+        Add("RQ", DraftLineKind.TicketOrTravel, Part("Dönüş ulaşım"),
+            "Dönüş ulaşım bedeli", "6245 m.14, m.27");
+        Add("TQ", DraftLineKind.DailyAllowance,
+            Part("Gidiş yol gündeliği") + Part("Görev gündeliği") + Part("Dönüş yol gündeliği"),
+            "Gidiş, görev ve dönüş gündeliği", "6245 m.39, m.42, m.43");
+        Add("LQ", DraftLineKind.Accommodation, Part("Konaklama"),
+            "Konaklama (2026 H Cetveli tavanlı)", "6245 m.33(d), 2026 H Cetveli I dipnot 1");
+        Add("OQ", DraftLineKind.OtherEligible, Part("Diğer masraflar"),
+            "6245 m.14 kapsamı diğer masraflar", "6245 m.14");
     }
 
     private static void SyncCalculatedExpense(DutyRecord duty, CalculationSnapshot preview)
