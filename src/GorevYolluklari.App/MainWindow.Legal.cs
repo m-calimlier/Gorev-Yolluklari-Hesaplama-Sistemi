@@ -20,39 +20,39 @@ public partial class MainWindow
         new Dictionary<string, LegalSection>(StringComparer.OrdinalIgnoreCase)
         {
             ["H2026"] = new("H2026", "2026 H Cetveli, I-B ve dipnot (1)", "2026 H Cetveli I-B",
-                "Memur/hizmetli gündelikleri: ek gösterge 8000+ 890 TL; 6400+ 880 TL; 3600+ 870 TL; derece 1–4 860 TL; 5–15 850 TL.",
+                "Ek göstergesi 8000 ve daha yüksek olan kadrolarda bulunanlar",
                 "Gündelik tutarı için 2026 Bütçe Kanunu H Cetveli I-B kullanılır. Konaklamada dipnot (1): ilk 10 gün %60 artırımlı, takip eden 80 gün %50, sonraki 90 gün hak edilen gündeliğin %40'ı tavan.",
                 H2026OfficialUrl),
             ["M14"] = new("M14", "Geçici görev harcırahı", "6245 m.14",
-                "Geçici görev için yol masrafı ile gündelik; bazı taşıma ve bagaj masrafları ayrıca ödenebilir.",
+                "muvakkat vazife harcırahı olarak yol masrafı ile yevmiye verilir",
                 "Yalnız 6245 m.14 kapsamına gerçekten giren diğer masrafları yazın. Her tür giderin otomatik olarak hak edildiği sonucuna varılamaz.",
                 HarcirahOfficialUrl),
             ["M27"] = new("M27", "Yurt içi yol masrafı", "6245 m.27",
-                "Yurt içinde yol masrafının hesabında tarife üzerinden bilet parası veya gerçek taşıma gideri esastır.",
+                "tarife üzerinden bilet parası",
                 "Gidiş ve dönüş ücretleri seçilen ulaşım için girilen tutarlardır. Program yol belgesinin hak sahipliğini doğrulamış sayılmaz.",
                 HarcirahOfficialUrl),
             ["M33D"] = new("M33D", "Yurt içinde konaklama", "6245 m.33(d)",
-                "Belgelendirilen yatacak yer bedeli; kanun ve ilgili yıl H Cetveli üst sınırlarıyla sınırlıdır.",
+                "yatacak yer temini için ödedikleri ücretleri belgelendirenlere",
                 "Geceler ve günlük ücret girilir; hesap motoru 2026 H Cetveli dipnot (1)'deki dönemsel üst sınırları uygular. Fatura incelemesi kurumun görevidir.",
                 HarcirahOfficialUrl),
             ["M39"] = new("M39", "Memuriyet mahalli dışı gündelik", "6245 m.39",
-                "Öğle veya akşam zamanından biri 1/3; ikisi 2/3; geceyi geçirmek tam gündelik.",
+                "ikisini geçirenlere 2/3 oranında ve geceyi de geçirenlere tam gündelik verilir",
                 "Gidiş ve dönüşte seçilen oranlar kullanıcının sağladığı hesap varsayımıdır. Saatler bu kısa formda ayrıca sorgulanmaz.",
                 HarcirahOfficialUrl),
             ["M42"] = new("M42", "Geçici görevde gündeliğin azami süresi", "6245 m.42(a)",
-                "Yurt içinde aynı yer ve işte bir yılda 180 gün: ilk 90 gün tam, sonraki 90 gün 2/3.",
+                "İlk 90 gün için tam, takibeden 90 gün için 2/3 oranında ödenir.",
                 "Kısa ekran, daha önce aynı yer ve iş için alınmış günleri sıfır varsayar; geçmiş gün durumu ve istisnalar ayrıca değerlendirilmelidir.",
                 HarcirahOfficialUrl),
             ["M43"] = new("M43", "Seyahat günlerinin hesabı", "6245 m.43",
-                "Seyahat süresi her 24 saat için hesaplanır; 24 saati aşan kesir tam gün sayılır.",
+                "Seyahat müddetinin her 24 saati aşan kesri tam gün sayılır.",
                 "Gidiş ve dönüş yol süreleri kullanıcı tarafından gün cinsinden girilir. Ödeme hakkı güzergâh ve saatler görülmeden teyit edilmiş sayılmaz.",
                 HarcirahOfficialUrl),
             ["M44"] = new("M44", "Aile harcırahı ve seyahat", "6245 m.44",
-                "Aile fertleri için seyahat ücreti ve gündelik, kanundaki aile harcırahı hükümlerine göre ele alınır.",
+                "Aile masrafı, aile fertlerinden her biri için",
                 "Sürekli görevde aile taşıt ve seyahat gündeliği için bu hüküm önemlidir; bilet ve hak sahipliği varsayımı kurumca incelenir.",
                 HarcirahOfficialUrl),
             ["M45"] = new("M45", "Yer değiştirme gideri", "6245 m.45",
-                "Kişi ve aile sabit unsurları ile kilometreye bağlı değişken unsur ayrı hesaplanır.",
+                "Kendisi için yurtiçi gündeliğinin yirmi katı",
                 "Sürekli Görev için ikinci memur eş seçimi kilometre unsurunu etkiler; geçici görev girdisi değildir.",
                 HarcirahOfficialUrl)
         };
@@ -118,12 +118,13 @@ public partial class MainWindow
         });
         stack.Children.Add(new TextBlock
         {
-            Text = "İLGİLİ MADDE / CETVEL ÖZETİ — SARI VURGU",
+            Text = "KANUN METNİNDEN KISA, AYNEN ALINMIŞ PASAJ",
             FontWeight = FontWeights.SemiBold, Margin = new(0, 0, 0, 10)
         });
         var excerpt = new TextBlock
         {
-            Text = legal.Highlight, TextWrapping = TextWrapping.Wrap, FontWeight = FontWeights.SemiBold,
+            Text = "… " + legal.Highlight.TrimEnd('.') + " …", TextWrapping = TextWrapping.Wrap,
+            FontWeight = FontWeights.SemiBold, FontSize = 17,
             Background = new SolidColorBrush(Color.FromRgb(250, 219, 100)),
             Foreground = new SolidColorBrush(Color.FromRgb(22, 36, 55)),
             Padding = new Thickness(13), Margin = new(0, 0, 0, 15)
@@ -131,13 +132,19 @@ public partial class MainWindow
         stack.Children.Add(excerpt);
         stack.Children.Add(new TextBlock
         {
+            Text = "AÇIKLAMA (ALINTI DEĞİLDİR)",
+            Foreground = (Brush)FindResource("HakedisGoldBrush"),
+            FontSize = 12, FontWeight = FontWeights.SemiBold, Margin = new(0, 0, 0, 6)
+        });
+        stack.Children.Add(new TextBlock
+        {
             Text = legal.Explanation, TextWrapping = TextWrapping.Wrap,
             Margin = new(0, 0, 0, 15)
         });
         stack.Children.Add(new TextBlock
         {
-            Text = "Not: Sarı bölüm tam kanun metni değil, ilgili hükmün kısa özetidir. " +
-                   "Resmî metnin tamamını aşağıdaki düğmeyle açabilirsiniz.",
+            Text = "Sarı bölüm, ilgili hükümden birebir kısa bir alıntıdır; maddenin tamamı değildir. " +
+                   "Altındaki açıklama programın yorumudur. Değişiklikler için resmî metni esas alın.",
             TextWrapping = TextWrapping.Wrap, Foreground = Brushes.LightSteelBlue,
             FontSize = 12, Margin = new(0, 0, 0, 15)
         });
