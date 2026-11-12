@@ -62,6 +62,17 @@ public partial class MainWindow
 
     private IEnumerable<(string, string)> DutyIssues(DutyRecord duty, PersonnelRecord person, bool includeExpenses = true)
     {
+        if (duty.Kind == DraftKind.TemporaryDuty && duty.QuickTemporaryEnabled)
+        {
+            // Sadece gerçek aritmetik/tarife girdileri kontrol edilir;
+            // resmî belge veya memur onay beyanı istenmez.
+            foreach (var issue in PersonIssues(person)) yield return issue;
+            if (person.Group != PersonnelTariffGroup.GeneralCivilServant)
+                yield return ("Grade", "Kısa hesap yalnız 2026 genel memur/hizmetli tarifesini destekler.");
+            if (includeExpenses)
+                foreach (var issue in ExpenseIssues(duty)) yield return issue;
+            yield break;
+        }
         foreach (var issue in PersonIssues(person)) yield return issue;
         if (person.Group == PersonnelTariffGroup.SpecialOrHighOffice)
             yield return ("Group", "Bu personel statüsü ayrı tarife incelemesi gerektiriyor.");
