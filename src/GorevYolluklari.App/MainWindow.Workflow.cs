@@ -314,6 +314,8 @@ public partial class MainWindow
 
     private void SaveEntryCore(bool notify)
     {
+        if (_form?.Kind == DraftKind.PermanentDuty)
+            SetPermanentCalculationDefaults(Duty());
         if (!PersonIsReady) SaveEntryPerson();
         if (!PersonIsReady) throw new InvalidOperationException("Kişi bilgilerini tamamlayın.");
         var person = _formPerson!;
@@ -336,6 +338,8 @@ public partial class MainWindow
             CheckFormIssues([(candidate.Kind == DraftKind.TemporaryDuty && candidate.Departure.Date != candidate.Return.Date
                 ? "ReviewedDays" : "Departure", calculation.Explanation)]);
         SyncCalculatedExpense(candidate, calculation);
+        if (candidate.Kind == DraftKind.PermanentDuty)
+            SyncPermanentQuickExpenses(candidate, calculation);
         candidate.Snapshot = service.PreviewForCalculation(person, candidate);
         CheckFormIssues(CalculatedExpenseIssues(candidate, candidate.Snapshot));
         CheckFormIssues(ExpenseIssues(candidate));
@@ -405,6 +409,52 @@ public partial class MainWindow
             accommodation.Evidence = "";
             accommodation.LegalBasis = "6245 m.33(d)";
         }
+    }
+
+    // Referans dokuz alanlı sürekli görev ekranındaki giderler otomatik oluşturulur.
+    // Genel varsayım: bir seyahat günü; tek kişilik taşıt ücreti bütün yolcular için eşit.
+    // Kaydın önceki manuel giderleri otomatik silinmez / tekrarlanmaz.
+    private static void SyncPermanentQuickExpenses(DutyRecord duty, CalculationSnapshot preview)
+    {
+        if (preview.DailyRate is not decimal rate || rate <= 0m) return;
+        void SetLine(DraftLineKind kind, string key, decimal raw, string label, string legal)
+        {
+            var id = "OTO-" + key + "-" + duty.Id.ToString("N");
+            var old = duty.Expenses.FirstOrDefault(x => x.LineId == id);
+            if (raw <= 0m)
+            {
+                if (old is not null) duty.Expenses.Remove(old);
+                return;
+            }
+            var sameKind = duty.Expenses.Where(x => x.Kind == kind && x.LineId != id).ToArray();
+            if (sameKind.Length != 0)
+            {
+                // Eski kayıtların elle girilmiş satırlarına müdahale etmeyin.
+                // Çift ödeme oluşmaması için yeni bir otomatik satır da üretmeyin.
+                if (old is not null) duty.Expenses.Remove(old);
+                return;
+            }
+            if (old is null)
+            {
+                old = new ExpenseEntry { LineId = id };
+                duty.Expenses.Add(old);
+            }
+            old.Kind = kind;
+            old.Amount = TransferAmount(raw);
+            old.Description = label;
+            old.Evidence = "";
+            old.LegalBasis = legal;
+        }
+        var family = duty.FamilyCount;
+        var fare = duty.TravelFarePerPerson ?? 0m;
+        SetLine(DraftLineKind.DailyAllowance, "SG", rate,
+            "Personel seyahat gündeliği (1 gün)", "6245 m.43");
+        SetLine(DraftLineKind.FamilyDaily, "AG", family * rate,
+            "Aile seyahat gündeliği (1 gün / kişi)", "6245 m.44");
+        SetLine(DraftLineKind.TicketOrTravel, "ST", fare,
+            "Personel taşıt bedeli", "6245 m.27");
+        SetLine(DraftLineKind.FamilyTravel, "AT", family * fare,
+            "Aile taşıt bedeli (eşit ücret varsayımı)", "6245 m.44");
     }
 
     private WorkspaceRecords CurrentWorkspace() => new()
