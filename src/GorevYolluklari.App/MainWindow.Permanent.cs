@@ -15,6 +15,7 @@ public partial class MainWindow
     private bool _permanentExpensesOpen;
     private FrameworkElement? _permanentCalculatedArea;
     private TextBlock? _permanentResultHint;
+    private ScrollViewer? _entryBoardScroll;
 
     private void ResetPermanentStep()
     {
@@ -66,10 +67,18 @@ public partial class MainWindow
             e.Handled = true;
         };
         Page.Children.Add(boardScroll);
+        _entryBoardScroll = boardScroll;
         return (
             Card("1 · Kişi", holders[0]),
             Card(taskTitle, holders[1]),
             Card("3 · Sonuç", holders[2]));
+    }
+
+    private void FocusResultCard()
+    {
+        if (_entryBoardScroll is null) return;
+        _entryBoardScroll.UpdateLayout();
+        _entryBoardScroll.ScrollToRightEnd();
     }
 
     private void BuildPermanentBoard(DutyRecord duty)
@@ -143,7 +152,8 @@ public partial class MainWindow
             CheckFormIssues([("Departure", preview.Explanation)]);
         _permanentPreview = preview;
         ShowPage();
-        Status.Text = "Yer değiştirme hesabı hazır. Sağdaki Sonuç kartından giderleri tamamlayıp kaydedin.";
+        FocusResultCard();
+        Status.Text = "Yer değiştirme hesabı hazır. Sağdaki Sonuç kartından PDF oluşturabilirsiniz.";
     }
 
     private void BuildPermanentResult(DutyRecord duty, StackPanel result)
