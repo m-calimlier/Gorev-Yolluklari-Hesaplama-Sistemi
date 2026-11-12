@@ -70,8 +70,9 @@ public partial class MainWindow
         if (string.IsNullOrWhiteSpace(duty.Origin)) yield return ("Origin", "Çıkış ili ve ilçesini seçin.");
         if (string.IsNullOrWhiteSpace(duty.Destination)) yield return ("Destination", "Varış ili ve ilçesini seçin.");
         if (duty.Departure.Year != 2026)
-            yield return ("Departure", duty.Kind == DraftKind.PermanentDuty ? "2026 yılına ait atama / işlem tarihini seçin." :
-                "2026 yılına ait ayrılış tarihini, saati ve dakikayı seçin.");
+            yield return ("Departure", duty.Kind == DraftKind.PermanentDuty
+                ? "Bu sade hesaplayıcı yalnız 2026 bütçe dönemi içindir. Yeni 2026 kaydı açın."
+                : "2026 yılına ait ayrılış tarihini, saati ve dakikayı seçin.");
         if (duty.Kind == DraftKind.TemporaryDuty)
         {
             if (duty.Return.Year != 2026) yield return ("Return", "2026 yılına ait dönüş tarihini, saati ve dakikayı seçin.");
@@ -93,7 +94,11 @@ public partial class MainWindow
                 (fare < 0m || fare != decimal.Round(fare, 2) || fare > 100000m))
                 yield return ("TravelFarePerPerson", "Taşıt ücreti 0–100.000 TL arasında ve kuruş hassasiyetinde olmalıdır.");
         }
-        if (duty.Station == DutyStationAssessment.Unknown) yield return ("Station", "Memuriyet mahalli değerlendirmesini seçin.");
+        if (duty.Station == DutyStationAssessment.Unknown)
+            yield return (duty.Kind == DraftKind.PermanentDuty ? "Destination" : "Station",
+                duty.Kind == DraftKind.PermanentDuty
+                    ? "Eski ve yeni görev yeri tamamlanınca hesaplama mahalli otomatik belirlenir."
+                    : "Memuriyet mahalli değerlendirmesini seçin.");
         if (includeExpenses)
             foreach (var issue in ExpenseIssues(duty)) yield return issue;
     }
