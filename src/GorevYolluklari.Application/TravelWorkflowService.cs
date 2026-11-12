@@ -91,11 +91,23 @@ public sealed class TravelWorkflowService(string tariffPath, CalculationConstant
                     ? "Kullanıcı tarafından seçilen memuriyet mahalli" : duty.StationEvidence));
             return Snapshot(person, duty, r.Status.ToString(), r.UnroundedAmount, r.DailyRate, r.DailyCategory, r.Explanation, r.LegalBasis);
         }
+        // Hesaplama modu resmi belge incelemesi beyanı oluşturmaz. Motorun
+        // hesap koşullarına gerekli varsayımlar yalnız bu çağrıya uygulanır.
+        // Gün listesi ve fatura tutarları kullanıcı tarafından girilmelidir.
         var result = new MultiDayDutyPreviewEngine2026(tariff, _constants.Temporary).Preview(new(personnel, duty.Station,
-            reviewed, duty.AnnualPeriodReviewed, duty.PriorDaysReviewed && duty.PriorDays.HasValue,
-            duty.EligibleDaysReviewed, duty.Article42ExceptionsExcluded, duty.LodgingReviewed,
-            duty.PriorDays ?? 0, duty.ReviewedDays.Select(x => new ReviewedDutyDay(DateOnly.FromDateTime(x.Date), x.LodgingOrdinal, x.LodgingAmount, x.Receipt)).ToArray(),
-            duty.AssignmentEvidence, duty.StationEvidence, duty.PriorDaysEvidence));
+            reviewed, calculationOnly || duty.AnnualPeriodReviewed,
+            calculationOnly || (duty.PriorDaysReviewed && duty.PriorDays.HasValue),
+            calculationOnly || duty.EligibleDaysReviewed,
+            calculationOnly || duty.Article42ExceptionsExcluded,
+            calculationOnly || duty.LodgingReviewed,
+            duty.PriorDays ?? 0,
+            duty.ReviewedDays.Select(x => new ReviewedDutyDay(
+                DateOnly.FromDateTime(x.Date), x.LodgingOrdinal, x.LodgingAmount,
+                calculationOnly && x.LodgingAmount.HasValue && string.IsNullOrWhiteSpace(x.Receipt)
+                    ? "Konaklama tutarı kullanıcı girdisi" : x.Receipt)).ToArray(),
+            calculationOnly ? "Kullanıcı tarafından girilen görev" : duty.AssignmentEvidence,
+            calculationOnly ? "Kullanıcı tarafından seçilen görev yeri" : duty.StationEvidence,
+            calculationOnly ? "Önceki gün sayısı kullanıcı girdisi" : duty.PriorDaysEvidence));
         if (duty.ReviewedDays.Any(x => x.Date.Date < duty.Departure.Date || x.Date.Date > duty.Return.Date))
             return Snapshot(person, duty, "İnceleme gerekli", null, null, null, "İncelenmiş gün görev aralığı dışında.", result.LegalBasis);
         return Snapshot(person, duty, result.Status.ToString(), result.CombinedTotalUnrounded, result.DailyRate,
