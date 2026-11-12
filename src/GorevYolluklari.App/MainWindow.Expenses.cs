@@ -126,7 +126,7 @@ public partial class MainWindow
         if (!PersonIsReady) throw new InvalidOperationException("Önce kişi bilgilerini kaydedin.");
         var person = _formPerson!;
         CheckFormIssues(DutyIssues(duty, person, includeExpenses: false));
-        var preview = Service.Preview(person, duty);
+        var preview = Service.PreviewForCalculation(person, duty);
         if (preview.Amount is null) throw new InvalidOperationException(preview.Explanation);
         if (preview.RuleVersion.StartsWith("SIM-", StringComparison.Ordinal))
             throw new InvalidOperationException("Simülasyon tutarı belge giderlerine aktarılmaz.");
