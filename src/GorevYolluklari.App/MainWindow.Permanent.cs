@@ -29,7 +29,7 @@ public partial class MainWindow
     // Tek bir üç kartlı düzen, iki görev türünde de kullanılır.
     // Dış sayfa yalnız dikey; kartların kaydırması yalnız yataydır.
     private (StackPanel Person, StackPanel Task, StackPanel Result) BuildThreeCardWorkspace(
-        string taskTitle, string personTitle = "1 · Kişi")
+        string taskTitle, string personTitle = "1 · Kişi", string thirdTitle = "3 · Sonuç")
     {
         var board = new Grid { MinWidth = 1140 };
         board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -71,7 +71,7 @@ public partial class MainWindow
         // Dar ekranlarda ilk/orta/son kart arasında ekranın altında kaydırma
         // çubuğunu aramadan geçiş. Geniş ekranda gereksiz yere görünmez.
         var quickNav = new WrapPanel { Margin = new(0, 0, 0, 7), Visibility = Visibility.Collapsed };
-        var steps = new[] { "1 · Kişi", "2 · Görev", "3 · Sonuç" };
+        var steps = new[] { "1 · Kişi", "2 · Görev", thirdTitle };
         for (var i = 0; i < steps.Length; i++)
         {
             var step = i;
@@ -104,7 +104,7 @@ public partial class MainWindow
         return (
             Card(personTitle, holders[0]),
             Card(taskTitle, holders[1]),
-            Card("3 · Sonuç", holders[2]));
+            Card(thirdTitle, holders[2]));
     }
 
     private (StackPanel Left, StackPanel Right) BuildTwoCardInputWorkspace(string leftTitle, string rightTitle)
