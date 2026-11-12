@@ -122,10 +122,14 @@ public static class TravelDraftPdfWriter
         Text(g, "Kurum: " + doc.Institution, normal, Left, 103, 730);
         Text(g, "Personel: " + doc.PersonnelFullName + " | Unvan: " + doc.PersonnelTitle,
             normal, Left, 124, 730);
-        Text(g, $"Güzergâh: {doc.Origin} - {doc.Destination}", normal, Left, 145, 470);
+        Text(g, doc.IsQuickTemporaryCalculation
+            ? "Güzergâh girilmedi (kısa hesap)"
+            : $"Güzergâh: {doc.Origin} - {doc.Destination}", normal, Left, 145, 470);
         var dates = doc.IsCalculationOutput && doc.Kind == DraftKind.PermanentDuty
             ? $"Bütçe dönemi: {doc.BudgetYear} | Atama tarihi girilmedi"
-            : $"Tarih: {doc.Begins:dd.MM.yyyy} - {doc.Ends:dd.MM.yyyy} | Yıl: {doc.BudgetYear}";
+            : doc.IsQuickTemporaryCalculation
+                ? $"Bütçe dönemi: {doc.BudgetYear} | Seyahat tarihleri girilmedi"
+                : $"Tarih: {doc.Begins:dd.MM.yyyy} - {doc.Ends:dd.MM.yyyy} | Yıl: {doc.BudgetYear}";
         Text(g, dates, normal, Left + 482, 145, 310);
         Text(g, $"Tarife: {doc.TariffReference} | Kural: {doc.RuleVersion}", normal, Left, 166, 730);
         var cols = new[] { Left, 90d, 225d, 445d, 630d, width - Right };
@@ -153,7 +157,9 @@ public static class TravelDraftPdfWriter
         }
         var tax = decimal.Round(doc.GrossTry * YollukOdemeOzeti2026.DamgaVergisiOrani, 2, MidpointRounding.AwayFromZero);
         DrawFooter(g, width, height,
-            doc.IsCalculationOutput && doc.Kind == DraftKind.PermanentDuty
+            doc.IsQuickTemporaryCalculation
+                ? "Ön hesap: 6245 m.42 önceki görev günleri sıfır varsayılmıştır; hak sahipliği kurumca incelenir."
+                : doc.IsCalculationOutput && doc.Kind == DraftKind.PermanentDuty
                 ? "Ön hesap: 1 gün seyahat, kişi başına eşit taşıt bedeli varsayılmıştır. Hak sahipliği kurumca incelenir."
                 : doc.IsCalculationOutput
                     ? "Girilen verilerden hesaplandı; hak sahipliği ve belgelerin incelemesi kurumca yapılır."
@@ -216,7 +222,8 @@ public static class TravelDraftPdfWriter
     {
         DraftLineKind.DailyAllowance => "Gündelik", DraftLineKind.TicketOrTravel => "Yol",
         DraftLineKind.Accommodation => "Konaklama", DraftLineKind.FamilyDaily => "Aile gündeliği",
-        DraftLineKind.FamilyTravel => "Aile yol", DraftLineKind.Relocation => "Yer değiştirme", _ => "Bilinmeyen"
+        DraftLineKind.FamilyTravel => "Aile yol", DraftLineKind.Relocation => "Yer değiştirme",
+        DraftLineKind.OtherEligible => "Diğer", _ => "Bilinmeyen"
     };
     private static XFont Font(double size, bool bold=false) =>
         new("Arial", size, bold ? XFontStyleEx.Bold : XFontStyleEx.Regular, XPdfFontOptions.UnicodeDefault);
