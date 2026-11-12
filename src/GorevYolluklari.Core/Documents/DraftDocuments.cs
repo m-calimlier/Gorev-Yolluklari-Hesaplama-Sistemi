@@ -9,7 +9,7 @@ namespace GorevYolluklari.Core.Documents;
 /// Aşama 2-6'daki aday gün/tutarlar bu sınıfa doğrudan otomatik aktarılmaz.
 /// </summary>
 public enum DraftKind { TemporaryDuty = 27, PermanentDuty = 28 }
-public enum DraftLineKind { DailyAllowance, TicketOrTravel, Accommodation, FamilyDaily, FamilyTravel, Relocation }
+public enum DraftLineKind { DailyAllowance, TicketOrTravel, Accommodation, FamilyDaily, FamilyTravel, Relocation, OtherEligible }
 public enum DraftDecisionStatus { DraftReady, NeedsInput, NeedsReview, Inconsistent }
 
 public sealed record DraftExpenseLine(
@@ -25,7 +25,7 @@ public sealed record DraftDocumentRequest(
     bool AssignmentAndStationReviewed, bool EntitlementAndAmountsReviewed,
     IReadOnlyList<DraftExpenseLine> Lines,
     decimal AdvanceTry, string? AdvanceEvidence,
-    decimal IndependentGrossTry, decimal IndependentNetTry);
+    decimal IndependentGrossTry, decimal IndependentNetTry, bool QuickTemporaryCalculator = false);
 
 public sealed record DraftDocument(
     DraftKind Kind, string DocumentNumber, string PersonnelFullName,
@@ -38,6 +38,7 @@ public sealed record DraftDocument(
 {
     public bool IsOfficialPaymentDocument => false;
     public bool IsCalculationOutput { get; init; }
+    public bool IsQuickTemporaryCalculation { get; init; }
     public string VisibilityNotice => IsCalculationOutput
         ? "YOLLUK HESAPLAMA ÇIKTISI - RESMİ ONAY BELGESİ DEĞİLDİR"
         : "KONTROL TASLAĞI - ÖDEME BELGESİ DEĞİLDİR";
@@ -55,7 +56,8 @@ public static class DraftDocumentService
     private static readonly Regex DocumentIdPattern = new(@"^[A-Za-z0-9][A-Za-z0-9_-]{3,39}$", RegexOptions.CultureInvariant);
     private const decimal MaximumAllowed = 100_000_000m;
     private static readonly HashSet<DraftLineKind> TemporaryKinds =
-        new() { DraftLineKind.DailyAllowance, DraftLineKind.TicketOrTravel, DraftLineKind.Accommodation };
+        new() { DraftLineKind.DailyAllowance, DraftLineKind.TicketOrTravel,
+            DraftLineKind.Accommodation, DraftLineKind.OtherEligible };
     private static readonly HashSet<DraftLineKind> PermanentKinds =
         new() { DraftLineKind.DailyAllowance, DraftLineKind.TicketOrTravel,
             DraftLineKind.FamilyDaily, DraftLineKind.FamilyTravel, DraftLineKind.Relocation };
@@ -130,7 +132,8 @@ public static class DraftDocumentService
             request.BudgetYear, request.TariffReference, request.RuleVersion.Trim(),
             (request.AssignmentEvidence ?? "").Trim(), (request.StationEvidence ?? "").Trim(),
             rows, gross, request.AdvanceTry, gross - request.AdvanceTry)
-            { IsCalculationOutput = !requireReview };
+            { IsCalculationOutput = !requireReview,
+              IsQuickTemporaryCalculation = !requireReview && request.QuickTemporaryCalculator };
         return new(DraftDecisionStatus.DraftReady,
             requireReview ? "Yalnız kontrol TASLAĞI oluşturulabilir; resmî ödeme onayı yoktur."
                 : "Hesaplama çıktısı hazır; bu belge resmî onay veya hak sahipliği doğrulaması değildir.",
