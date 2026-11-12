@@ -123,7 +123,10 @@ public static class TravelDraftPdfWriter
         Text(g, "Personel: " + doc.PersonnelFullName + " | Unvan: " + doc.PersonnelTitle,
             normal, Left, 124, 730);
         Text(g, $"Güzergâh: {doc.Origin} - {doc.Destination}", normal, Left, 145, 470);
-        Text(g, $"Tarih: {doc.Begins:dd.MM.yyyy} - {doc.Ends:dd.MM.yyyy} | Yıl: {doc.BudgetYear}", normal, Left + 482, 145, 310);
+        var dates = doc.IsCalculationOutput && doc.Kind == DraftKind.PermanentDuty
+            ? $"Bütçe dönemi: {doc.BudgetYear} | Atama tarihi girilmedi"
+            : $"Tarih: {doc.Begins:dd.MM.yyyy} - {doc.Ends:dd.MM.yyyy} | Yıl: {doc.BudgetYear}";
+        Text(g, dates, normal, Left + 482, 145, 310);
         Text(g, $"Tarife: {doc.TariffReference} | Kural: {doc.RuleVersion}", normal, Left, 166, 730);
         var cols = new[] { Left, 90d, 225d, 445d, 630d, width - Right };
         DrawTableHeader(g, cols, TableTop, new[] { "Satır", "Gider türü", "Açıklama",
