@@ -304,7 +304,15 @@ public partial class MainWindow
         _taskStart?.Focus();
     }
 
-    private void SaveEntry()
+    private void SaveEntry() => SaveEntryCore(notify: true);
+
+    private void SaveAndMakePdf()
+    {
+        SaveEntryCore(notify: false);
+        if (_vm.SelectedDuty is { } saved) MakePdf(saved);
+    }
+
+    private void SaveEntryCore(bool notify)
     {
         if (!PersonIsReady) throw new InvalidOperationException("Önce kişi bilgilerini kaydedin.");
         var person = _formPerson!;
@@ -341,7 +349,7 @@ public partial class MainWindow
         SaveWorkspace(next, candidate.Id);
         ClearEntry();
         Status.Text = "Görev ve hesap sonucu kaydedildi.";
-        _dialog("Görev ve hesap sonucu kaydedildi.", "Kayıt başarılı", MessageBoxButton.OK);
+        if (notify) _dialog("Görev ve hesap sonucu kaydedildi.", "Kayıt başarılı", MessageBoxButton.OK);
         Navigation.SelectedIndex = 2;
     }
 
