@@ -46,6 +46,20 @@ try
         TravelDraftPdfWriter.SaveDraft(Create("SUR-2026-001",DraftKind.PermanentDuty),path);
         PdfCheck(path,1);
     });
+    Test("Doğrudan yolluk hesaplama PDF'si inceleme beyanı olmadan oluşur",()=>{
+        var req=new DraftDocumentRequest(DraftKind.TemporaryDuty,"GEC-HES-001",
+            "SENTETİK PERSONEL","Öğretmen","SENTETİK KURUM",
+            "Adana/Aladağ","Adana/Ceyhan",new DateOnly(2026,6,15),new DateOnly(2026,6,15),
+            2026,"BUT-002:2026:I-B","ASAMA8-2026-1",
+            "","",false,false,
+            new[]{new DraftExpenseLine("OTO-GD-001",DraftLineKind.DailyAllowance,"Gündelik",
+                566.67m,"","6245 m.39")},0m,"",0m,0m);
+        var decision=DraftDocumentService.CreateCalculationCopy(req);
+        Check(decision.MayPrintDraft && decision.Document is { IsCalculationOutput: true }, decision.Reason);
+        var path=Path.Combine(dir,"Gecici_Hesaplama_Ciktisi.pdf");
+        TravelDraftPdfWriter.SaveDraft(decision.Document!,path);
+        PdfCheck(path,1);
+    });
     Test("40 satır - sayfalar bölünür",()=>{
         var path=Path.Combine(dir,"CokSatir_TASLAK.pdf");
         TravelDraftPdfWriter.SaveDraft(Create("GEC-2026-040",DraftKind.TemporaryDuty,40),path);
@@ -89,7 +103,7 @@ try
             File.Copy(Path.Combine(dir,file),Path.Combine(demoDir,file),false);
         Console.WriteLine("[DEMO] Örnek kontrol çıktıları: " + demoDir);
     }
-    Console.WriteLine($"TOPLAM: {passed}/7 PDF DUMAN TESTİ BAŞARILI");
+    Console.WriteLine($"TOPLAM: {passed}/8 PDF DUMAN TESTİ BAŞARILI");
     Console.WriteLine("UYARI: Taslaklar resmî Örnek 27/28 formunun birebir onaylı sureti değildir.");
     return 0;
 }
