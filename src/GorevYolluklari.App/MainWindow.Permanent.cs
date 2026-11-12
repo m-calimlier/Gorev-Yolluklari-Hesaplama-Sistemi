@@ -6,6 +6,7 @@ using System.Windows.Media;
 using GorevYolluklari.Core.Documents;
 using GorevYolluklari.Core.Records;
 using GorevYolluklari.Core.Rules;
+using GorevYolluklari.Core.Tariffs;
 
 namespace GorevYolluklari.App;
 
@@ -260,9 +261,9 @@ public partial class MainWindow
 
     private void PreviewPermanent()
     {
-        if (!PersonIsReady) SaveEntryPerson();
-        if (!PersonIsReady) throw new InvalidOperationException("Kişi bilgilerini tamamlayın.");
         var duty = Duty();
+        SetPermanentCalculationDefaults(duty);
+        // Hesapla yalnızca önizler; PDF/Kaydet seçilene kadar kişi kaydı oluşturulmaz.
         CheckFormIssues(DutyIssues(duty, _formPerson!, includeExpenses: false));
         var preview = Service.PreviewForCalculation(_formPerson!, duty);
         if (preview.Amount is null)
@@ -275,19 +276,32 @@ public partial class MainWindow
 
     private void BuildPermanentResult(DutyRecord duty, StackPanel result)
     {
-        if (_permanentPreview is not { } preview)
+        if (_permanentPreview is not { Amount: decimal relocation, DailyRate: decimal rate } preview)
         {
-            _permanentCalculatedArea!.Visibility = Visibility.Collapsed;
+            result.Visibility = Visibility.Collapsed;
             return;
         }
         _permanentResultHint!.Visibility = Visibility.Collapsed;
-        result.Children.Add(Metric("Yer değiştirme", Money(preview.Amount)));
-        result.Children.Add(Text("Gündelik " + Money(preview.DailyRate)));
+        var selfTravelDay = rate; // 2026 hesaplama önizlemesi: 1 seyahat günü
+        var familyTravelDay = rate * duty.FamilyCount;
+        var ticket = duty.TravelFarePerPerson ?? 0m;
+        var personTicket = ticket;
+        var familyTicket = ticket * duty.FamilyCount;
+        var total = relocation + selfTravelDay + familyTravelDay + personTicket + familyTicket;
+        result.Children.Add(Metric("Yolluk Hesap Toplamı", Money(total)));
+        result.Children.Add(Text("Yer değiştirme gideri · " + Money(relocation), 12));
         foreach (var component in preview.Components ?? [])
-            result.Children.Add(Text($"{component.Label} · {Money(component.Amount)}"));
-        result.Children.Add(Text("Kaydettiğinizde yer değiştirme tutarı otomatik giderlere eklenir; ayrıca aktarım yapmanız gerekmez.", 12));
-
-
+            result.Children.Add(Text("   " + component.Label + " · " + Money(component.Amount), 12));
+        result.Children.Add(Text("Personel seyahat gündeliği (1 gün) · " + Money(selfTravelDay), 12));
+        if (duty.FamilyCount > 0)
+            result.Children.Add(Text($"Aile seyahat gündeliği ({duty.FamilyCount} kişi / 1 gün) · " +
+                Money(familyTravelDay), 12));
+        if (ticket > 0m)
+            result.Children.Add(Text($"Taşıt gideri ({1 + duty.FamilyCount} kişi, eşit bilet varsayımı) · " +
+                Money(personTicket + familyTicket), 12));
+        result.Children.Add(Text(
+            "Ön hesap: Seyahat gündeliği 1 gün, varsa taşıt ücreti kişi başına eşit kabul edilmiştir. " +
+            "Farklı seyahat süreleri, indirimli aile biletleri ve memuriyet mahalli istisnaları kurumca incelenir.", 12));
     }
 
     private static string RelocationLineId(DutyRecord duty) => "OTO-YD-" + duty.Id.ToString("N");
