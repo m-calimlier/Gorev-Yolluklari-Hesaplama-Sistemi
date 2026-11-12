@@ -183,8 +183,8 @@ public partial class MainWindow
         try
         {
             var totals = YollukOdemeOzeti2026.Hesapla(duty.Expenses, duty.Advance);
-            return $"Brüt {Money(totals.Brut)}  ·  Damga vergisi {Money(totals.DamgaVergisi)}" +
-                $"  ·  Avans {Money(totals.Avans)}  ·  Tahmini net {Money(totals.Net)}";
+            return $"Yolluk toplamı {Money(totals.Brut)}  ·  Damga vergisi {Money(totals.DamgaVergisi)}" +
+                $"  ·  Avans {Money(totals.Avans)}  ·  Hesaplanan ödeme {Money(totals.Net)}";
         }
         catch (ArgumentException)
         {
