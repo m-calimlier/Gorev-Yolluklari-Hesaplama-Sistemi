@@ -76,6 +76,8 @@ public partial class MainWindow
         if (previous == place) return;
         if (origin) duty.Origin = place;
         else duty.Destination = place;
+        if (duty.Kind == DraftKind.PermanentDuty)
+            ApplyPermanentStationFromRoute(duty);
         Invalidate(duty, origin ? nameof(duty.Origin) : nameof(duty.Destination));
         CancelDistance();
         if (duty.Kind != DraftKind.PermanentDuty) return;
@@ -115,7 +117,7 @@ public partial class MainWindow
             if (!ReferenceEquals(request, _distanceRequest) || duty.Kilometers != initialDistance || duty.DistanceEvidence != initialEvidence)
                 return;
 
-            var uncommittedDistance = DistanceField("Kaynaklı kilometre");
+            var uncommittedDistance = DistanceField("Mesafe (km)");
             var uncommittedEvidence = DistanceField("KGM / mesafe kanıtı");
             if ((uncommittedDistance?.IsKeyboardFocusWithin == true &&
                     uncommittedDistance.Text != initialDistance.ToString(Tr)) ||
@@ -126,7 +128,7 @@ public partial class MainWindow
             duty.DistanceEvidence = $"KGM İlçeler Arası Mesafe · {from} → {to} · {DateTime.Today:dd.MM.yyyy}";
             Invalidate(duty, nameof(duty.Kilometers));
             UpdateDistanceFields();
-            Status.Text = $"KGM mesafesi: {km} km. Mesafe ve güzergâhı inceleyin.";
+            Status.Text = $"KGM mesafesi getirildi: {km} km.";
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or
                                     InvalidDataException or JsonException or System.Text.RegularExpressions.RegexMatchTimeoutException)
@@ -135,7 +137,7 @@ public partial class MainWindow
             var reason = !NetworkInterface.GetIsNetworkAvailable() ? "İnternet bağlantısı yok."
                 : ex is InvalidDataException or JsonException ? "KGM bu güzergâh için doğrulanabilir mesafe döndürmedi."
                 : "KGM'ye ulaşılamadı. İnternet bağlantınızı kontrol edin.";
-            Status.Text = reason + " Mesafeyi ve dayanağını elle girin.";
+            Status.Text = reason + " Mesafeyi elle girebilirsiniz.";
             _dialog(Status.Text, "KGM mesafe sorgusu", MessageBoxButton.OK);
         }
         finally
@@ -149,7 +151,7 @@ public partial class MainWindow
 
     private void UpdateDistanceFields()
     {
-        DistanceField("Kaynaklı kilometre")?.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+        DistanceField("Mesafe (km)")?.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
         DistanceField("KGM / mesafe kanıtı")?.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
     }
 
