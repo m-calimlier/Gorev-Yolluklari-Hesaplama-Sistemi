@@ -54,6 +54,15 @@ public partial class MainWindow : Window
         try { _vm.Load(_repository.Load()); }
         catch (Exception ex) { _loadFailed = true; Status.Text = "Kayıt açılamadı. Kaydetme kapalı; Yedekleme bölümünden kurtarın. " + ex.Message; }
         Navigation.ItemsSource = new[] { "Ana Sayfa", "Veri Girişi", "Hesapla", "Sabitler", "Yedekleme / Ayarlar", "Kaynaklar" };
+        // Mevcut sayfa indekslerini/kayıtları koru; günlük bildirim akışında yalnız ilgili sekmeleri göster.
+        var navigationStyle = new Style(typeof(ListBoxItem), (Style)FindResource("WorkspaceNavigationItem"));
+        foreach (var hiddenPage in new[] { "Ana Sayfa", "Sabitler", "Kaynaklar" })
+        {
+            var hidden = new DataTrigger { Binding = new Binding(), Value = hiddenPage };
+            hidden.Setters.Add(new Setter(UIElement.VisibilityProperty, Visibility.Collapsed));
+            navigationStyle.Triggers.Add(hidden);
+        }
+        Navigation.ItemContainerStyle = navigationStyle;
         Navigation.SelectionChanged += (_, _) => Navigate();
         Navigation.SelectedIndex = Environment.GetCommandLineArgs().Contains("--sonuclar", StringComparer.Ordinal) ? 2 : 1;
         CommandBindings.Add(new CommandBinding(ApplicationCommands.Save, (_, _) => Safe(SaveCurrent)));
