@@ -311,7 +311,16 @@ public partial class MainWindow : Window
         _temporaryResultHint = Text(_temporaryPreview?.Amount is null
             ? "Görev ve tarih bilgilerini girip Hesapla düğmesine basın."
             : "Girilen verilere göre hesaplanan yolluk:", 12);
-        result.Children.Add(_temporaryResultHint);
+        _temporaryResultHint.Style = (Style)FindResource("HakedisCardSubtitle");
+        _temporaryResultHint.Margin = new(0);
+        var temporaryInfo = new Border
+        {
+            Style = (Style)FindResource("HakedisInfoCard"),
+            Child = _temporaryResultHint
+        };
+        temporaryInfo.SetBinding(UIElement.VisibilityProperty,
+            new Binding(nameof(UIElement.Visibility)) { Source = _temporaryResultHint });
+        result.Children.Add(temporaryInfo);
         var calculated = new StackPanel();
         _temporaryResultContent = calculated;
         result.Children.Add(calculated);
