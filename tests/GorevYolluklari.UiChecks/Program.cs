@@ -165,7 +165,7 @@ internal static class Program
             Check("Eksik tarife girdisi kaydedilmez", repository.Load().Duties.Count == 0);
 
             Pick("Aylık Kadro Derecesi", 5);
-            Pick("Ek Gösterge Grubu", 0);
+            ChoiceBox("Ek Gösterge Grubu").SelectedValue = 0;
             Set("Gidiş Ulaşım Ücretleri Toplamı (TL)", "120");
             Pick("Gidiş Gündelik Oranı", 2);
             Set("Gidiş Yol Gündelik Süresi (gün)", "1");
