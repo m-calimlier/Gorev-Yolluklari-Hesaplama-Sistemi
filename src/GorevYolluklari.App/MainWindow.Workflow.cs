@@ -129,7 +129,8 @@ public partial class MainWindow
             var existing = _vm.Duties.Where(d => d.Kind == _form.Kind).ToArray();
             if (existing.Length > 0)
             {
-                var picker = new ComboBox { ItemsSource = existing, SelectedItem = existing.FirstOrDefault(d => d.Id == _form.Id) };
+                var picker = new ComboBox { ItemsSource = existing, SelectedItem = existing.FirstOrDefault(d => d.Id == _form.Id),
+                    Style = (Style)FindResource("HakedisFieldCombo") };
                 AutomationProperties.SetName(picker, "Mevcut görev");
                 Page.Children.Add(new Label { Content = "Mevcut Görevi Aç" });
                 Page.Children.Add(picker);
@@ -190,12 +191,14 @@ public partial class MainWindow
             .Concat(_vm.Personnel.Select(p => new PersonChoice(p, p.FullName))).ToArray();
         var picker = new ComboBox
         {
+            Style = (Style)FindResource("HakedisFieldCombo"),
             ItemsSource = choices,
             DisplayMemberPath = nameof(PersonChoice.Label),
             SelectedItem = choices.FirstOrDefault(x => x.Person?.Id == person.Id) ?? choices[0]
         };
         AutomationProperties.SetName(picker, "Personel seçimi");
-        card.Children.Add(new Label { Content = "Personel Seçimi" });
+        card.Children.Add(new Label { Content = "Personel Seçimi",
+            Style = (Style)FindResource("HakedisFieldLabel") });
         card.Children.Add(picker);
         var restoring = false;
         picker.SelectionChanged += (_, _) =>
