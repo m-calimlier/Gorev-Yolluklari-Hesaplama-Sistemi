@@ -55,6 +55,40 @@ public sealed class TravelWorkflowService(string tariffPath, CalculationConstant
     private CalculationSnapshot Calculate(PersonnelRecord person, DutyRecord duty, bool calculationOnly)
     {
         var tariff = LoadTariff();
+        if (duty.Kind == DraftKind.TemporaryDuty && duty.QuickTemporaryEnabled)
+        {
+            // 2026 referanslı kısa geçici görev: ayrı TemporaryDuty.Core motoru.
+            // Tarih, mahal ve belge incelemesi 10 sayısal girdiden çıkarılamaz.
+            try
+            {
+                var request = new QuickTemporaryDutyRequest2026(
+                    new(new DateOnly(2026, 1, 1), person.Group, person.Grade, person.Indicator),
+                    duty.QuickOutboundFare, duty.QuickOutboundThirds, duty.QuickOutboundTravelDays,
+                    duty.QuickReturnFare, duty.QuickReturnThirds, duty.QuickReturnTravelDays,
+                    duty.QuickWorkDays, duty.QuickLodgingNights, duty.QuickLodgingDailyFare,
+                    duty.QuickOtherExpenses);
+                var q = new QuickTemporaryDutyEngine2026(tariff).Calculate(request);
+                IReadOnlyList<CalculationComponent> parts = [
+                    new("Gidiş ulaşım", q.OutboundFare),
+                    new("Gidiş yol gündeliği", q.OutboundDaily),
+                    new("Görev gündeliği", q.WorkDaily),
+                    new("Dönüş ulaşım", q.ReturnFare),
+                    new("Dönüş yol gündeliği", q.ReturnDaily),
+                    new("Konaklama", q.Lodging),
+                    new("Diğer masraflar", q.OtherEligibleCosts)
+                ];
+                return Snapshot(person, duty, "Ön hesap", q.Total, q.DailyRate, "2026 I-B",
+                    "Kullanıcının seçtiği gidiş/dönüş oranları ve gün sayılarıyla hesaplanmıştır. " +
+                    "6245 m.42 bakımından önceki aynı görev günleri sıfır varsayılmıştır; " +
+                    "resmî hak sahipliği ve belge değerlendirmesi değildir.",
+                    q.RuleReference, parts);
+            }
+            catch (ArgumentException ex)
+            {
+                return Snapshot(person, duty, "Giriş gerekli", null, null, null, ex.Message,
+                    "6245 m.14, 27, 33(d), 39, 42, 43; 2026 H Cetveli I-B dipnot (1)");
+            }
+        }
         var personnel = new PersonnelTariffInput(DateOnly.FromDateTime(duty.Departure), person.Group, person.Grade, person.Indicator);
         var reviewed = calculationOnly || (duty.AssignmentReviewed && duty.StationReviewed && !string.IsNullOrWhiteSpace(duty.Reviewer) &&
             !string.IsNullOrWhiteSpace(duty.AssignmentEvidence) && !string.IsNullOrWhiteSpace(duty.StationEvidence));
@@ -155,13 +189,43 @@ public sealed class TravelWorkflowService(string tariffPath, CalculationConstant
         var calculated = d.Kind == DraftKind.PermanentDuty || d.Departure.Date == d.Return.Date
             ? d.Snapshot.Amount
             : d.Snapshot.Components?.FirstOrDefault(x => x.Label == "Gündelik")?.Amount;
-        if (calculated is decimal raw && raw > 0m)
+        if (!d.QuickTemporaryEnabled && calculated is decimal raw && raw > 0m)
         {
             var expected = decimal.Round(raw, 2, MidpointRounding.AwayFromZero);
             var lines = d.Expenses.Where(x => x.Kind == itemKind).ToArray();
             if (lines.Length != 1 || lines[0].Amount != expected)
                 return new(DraftDecisionStatus.Inconsistent,
                     "Hesaplanan gündelik/yer değiştirme tutarı gider satırıyla eşleşmiyor. Kaydı yeniden hesaplayın.", null);
+        }
+        if (d.Kind == DraftKind.TemporaryDuty && d.QuickTemporaryEnabled)
+        {
+            var components = d.Snapshot.Components ?? [];
+            decimal Get(string label) => components.FirstOrDefault(x => x.Label == label)?.Amount ?? 0m;
+            var expected = new[]
+            {
+                (Id: "OTO-GQ-", Kind: DraftLineKind.TicketOrTravel, Value: Get("Gidiş ulaşım")),
+                (Id: "OTO-RQ-", Kind: DraftLineKind.TicketOrTravel, Value: Get("Dönüş ulaşım")),
+                (Id: "OTO-TQ-", Kind: DraftLineKind.DailyAllowance,
+                    Value: Get("Gidiş yol gündeliği") + Get("Görev gündeliği") + Get("Dönüş yol gündeliği")),
+                (Id: "OTO-LQ-", Kind: DraftLineKind.Accommodation, Value: Get("Konaklama")),
+                (Id: "OTO-OQ-", Kind: DraftLineKind.TicketOrTravel, Value: Get("Diğer masraflar"))
+            };
+            var expectedIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var row in expected)
+            {
+                var id = row.Id + d.Id.ToString("N");
+                if (row.Value > 0m) expectedIds.Add(id);
+                var actual = d.Expenses.Where(x => x.LineId == id).ToArray();
+                if ((row.Value <= 0m && actual.Length > 0) ||
+                    (row.Value > 0m && (actual.Length != 1 || actual[0].Amount !=
+                        decimal.Round(row.Value, 2, MidpointRounding.AwayFromZero) ||
+                        actual[0].Kind != row.Kind)))
+                    return new(DraftDecisionStatus.Inconsistent,
+                        "Geçici görev gider satırları kısa hesapla eşleşmiyor; kaydı yeniden hesaplayın.", null);
+            }
+            if (d.Expenses.Any(x => !expectedIds.Contains(x.LineId)))
+                return new(DraftDecisionStatus.Inconsistent,
+                    "Eski veya elle eklenmiş gider satırları yeni kısa hesabın dışında. Yeni bir kayıt açın.", null);
         }
         if (d.Kind == DraftKind.PermanentDuty && d.Snapshot.DailyRate is decimal perDiem)
         {
