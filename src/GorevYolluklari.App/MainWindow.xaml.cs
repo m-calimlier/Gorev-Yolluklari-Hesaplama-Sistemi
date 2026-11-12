@@ -339,7 +339,7 @@ public partial class MainWindow : Window
     private string OutputPath(string prefix) => Path.Combine(PortablePaths.Outputs, prefix + "_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + Guid.NewGuid().ToString("N")[..8] + ".pdf");
     private DraftDocument Prepare(DutyRecord d)
     {
-        var result = Service.PrepareDraft(Person(d), d);
+        var result = Service.PrepareCalculationPdf(Person(d), d);
         return result.MayPrintDraft ? result.Document! : throw new InvalidOperationException(result.Reason);
     }
     private void MakePdf(DutyRecord duty)
