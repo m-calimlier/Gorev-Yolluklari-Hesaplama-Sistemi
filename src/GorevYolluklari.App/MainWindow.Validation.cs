@@ -81,14 +81,7 @@ public partial class MainWindow
             if (duty.Departure.Year == 2026 && duty.Return.Year == 2026 && duty.Departure.Date != duty.Return.Date)
             {
                 if (duty.ReviewedDays.Count == 0) yield return ("ReviewedDays", "İncelenmiş hak günlerini girin.");
-                if (duty.PriorDays is null or < 0) yield return ("PriorDays", "İncelenmiş önceki gün sayısını girin.");
-                if (string.IsNullOrWhiteSpace(duty.PriorDaysEvidence)) yield return ("PriorDaysEvidence", "Gün defteri dayanağını girin.");
-                if (!duty.AnnualPeriodReviewed) yield return ("AnnualPeriodReviewed", "Yıllık dönemi inceleyin.");
-                if (!duty.PriorDaysReviewed) yield return ("PriorDaysReviewed", "Önceki günleri inceleyin.");
-                if (!duty.EligibleDaysReviewed) yield return ("EligibleDaysReviewed", "Hak günlerini inceleyin.");
-                if (!duty.Article42ExceptionsExcluded) yield return ("Article42ExceptionsExcluded", "İstisnaları inceleyin.");
-                if (!duty.LodgingReviewed && duty.ReviewedDays.Any(day => day.LodgingAmount.HasValue))
-                    yield return ("LodgingReviewed", "Konaklama hak sahipliğini inceleyin.");
+                if (duty.PriorDays is < 0) yield return ("PriorDays", "Önceki gün sayısı negatif olamaz.");
             }
         }
         else
