@@ -91,13 +91,6 @@ internal static class Program
                 ChoiceBox(label + " ili").SelectedValue = city;
                 ChoiceBox(label + " ilçesi").SelectedItem = district;
             }
-            void Review(string name)
-            {
-                var box = Descendants<CheckBox>(page).Single(x => AutomationProperties.GetName(x) == name);
-                box.IsChecked = true;
-                box.GetBindingExpression(CheckBox.IsCheckedProperty)!.UpdateSource();
-            }
-
             void Capture(string name, int width, int height)
             {
                 var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
