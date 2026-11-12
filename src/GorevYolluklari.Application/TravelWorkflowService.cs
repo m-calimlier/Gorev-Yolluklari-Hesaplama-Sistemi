@@ -42,12 +42,22 @@ public sealed class TravelWorkflowService(string tariffPath, CalculationConstant
             duty.WorkStarts ?? default, duty.WorkEnds ?? default, duty.WorkTimeEvidence, duty.WorkTimesReviewed,
             new(duty.InboundDeparture ?? default, duty.Return, duty.InboundEvidence), duty.ClockConcern));
     }
-    public CalculationSnapshot Preview(PersonnelRecord person, DutyRecord duty)
+    public CalculationSnapshot Preview(PersonnelRecord person, DutyRecord duty) =>
+        Calculate(person, duty, calculationOnly: false);
+
+    /// <summary>
+    /// Yalnız hesaplama çıktısı: memurun belge incelemesini kendisi yapmış gibi
+    /// işaretlemeden, girilen tarife/yer/tarih/aile/mesafe bilgileriyle ön hesap.
+    /// </summary>
+    public CalculationSnapshot PreviewForCalculation(PersonnelRecord person, DutyRecord duty) =>
+        Calculate(person, duty, calculationOnly: true);
+
+    private CalculationSnapshot Calculate(PersonnelRecord person, DutyRecord duty, bool calculationOnly)
     {
         var tariff = LoadTariff();
         var personnel = new PersonnelTariffInput(DateOnly.FromDateTime(duty.Departure), person.Group, person.Grade, person.Indicator);
-        var reviewed = duty.AssignmentReviewed && duty.StationReviewed && !string.IsNullOrWhiteSpace(duty.Reviewer) &&
-            !string.IsNullOrWhiteSpace(duty.AssignmentEvidence) && !string.IsNullOrWhiteSpace(duty.StationEvidence);
+        var reviewed = calculationOnly || (duty.AssignmentReviewed && duty.StationReviewed && !string.IsNullOrWhiteSpace(duty.Reviewer) &&
+            !string.IsNullOrWhiteSpace(duty.AssignmentEvidence) && !string.IsNullOrWhiteSpace(duty.StationEvidence));
         var permanentDuty = duty.Kind == DraftKind.PermanentDuty;
         if (duty.Departure == default || (!permanentDuty && duty.Return == default))
             return Snapshot(person, duty, "Bilgi gerekli", null, null, null, permanentDuty
@@ -58,8 +68,10 @@ public sealed class TravelWorkflowService(string tariffPath, CalculationConstant
             return Snapshot(person, duty, "İnceleme gerekli", null, null, null, "Dönüş, ayrılıştan önce olamaz.", "2026 H Cetveli");
         if (duty.Kind == DraftKind.PermanentDuty)
         {
-            var r = new PermanentDutyEngine(tariff, _constants.Permanent).PreviewRelocation(new(personnel, duty.Station, reviewed, duty.FamilyReviewed,
-                duty.SpouseTransfer, duty.FamilyCount, duty.Kilometers, duty.DistanceEvidence));
+            var r = new PermanentDutyEngine(tariff, _constants.Permanent).PreviewRelocation(new(personnel, duty.Station, reviewed, calculationOnly || duty.FamilyReviewed,
+                duty.SpouseTransfer, duty.FamilyCount, duty.Kilometers,
+                calculationOnly && string.IsNullOrWhiteSpace(duty.DistanceEvidence)
+                    ? "Kullanıcı tarafından girilen mesafe" : duty.DistanceEvidence));
             IReadOnlyList<CalculationComponent>? components = null;
             if (r.Status == IntegratedPreviewStatus.Preliminary && r.DailyRate is decimal rate)
                 components = [
@@ -74,7 +86,9 @@ public sealed class TravelWorkflowService(string tariffPath, CalculationConstant
             return Snapshot(person, duty, "İnceleme gerekli", null, null, null, "Görev türü geçersiz.", "");
         if (duty.Departure.Date == duty.Return.Date)
         {
-            var r = new TemporaryDutyEngine(tariff, _constants.Temporary).PreviewSameDay(new(personnel, duty.Departure, duty.Return, duty.Station, reviewed, duty.StationEvidence));
+            var r = new TemporaryDutyEngine(tariff, _constants.Temporary).PreviewSameDay(new(personnel, duty.Departure, duty.Return, duty.Station, reviewed,
+                calculationOnly && string.IsNullOrWhiteSpace(duty.StationEvidence)
+                    ? "Kullanıcı tarafından seçilen memuriyet mahalli" : duty.StationEvidence));
             return Snapshot(person, duty, r.Status.ToString(), r.UnroundedAmount, r.DailyRate, r.DailyCategory, r.Explanation, r.LegalBasis);
         }
         var result = new MultiDayDutyPreviewEngine2026(tariff, _constants.Temporary).Preview(new(personnel, duty.Station,
@@ -113,4 +127,22 @@ public sealed class TravelWorkflowService(string tariffPath, CalculationConstant
             d.AssignmentReviewed && d.StationReviewed, d.AmountsReviewed, d.Expenses.Select(x => x.ToLine()).ToArray(),
             d.Advance, d.AdvanceEvidence, d.IndependentGross.Value, d.IndependentNet.Value));
     }
+    public DraftDecision PrepareCalculationPdf(PersonnelRecord p, DutyRecord d)
+    {
+        if (IsSimulation(d.Kind) || d.Snapshot?.RuleVersion.StartsWith("SIM-", StringComparison.Ordinal) == true)
+            return new(DraftDecisionStatus.NeedsReview,
+                "Simülasyon sabitleriyle hesaplama PDF'si oluşturulmaz. Tarifeyi geri yükleyin.", null);
+        if (!IsCurrent(p, d) || d.Snapshot?.Amount is null)
+            return new(DraftDecisionStatus.NeedsReview,
+                "Güncel hesap bulunamadı. Kaydı yeniden hesaplayıp kaydedin.", null);
+        return DraftDocumentService.CreateCalculationCopy(new(d.Kind, d.DocumentNumber,
+            p.FullName, p.Title, p.Institution, d.Origin, d.Destination,
+            DateOnly.FromDateTime(d.Departure),
+            DateOnly.FromDateTime(d.Kind == DraftKind.PermanentDuty ? d.Departure : d.Return),
+            2026, d.Snapshot.TariffReference, d.Snapshot.RuleVersion,
+            d.AssignmentEvidence, d.StationEvidence,
+            false, false, d.Expenses.Select(x => x.ToLine()).ToArray(),
+            d.Advance, d.AdvanceEvidence, 0m, 0m));
+    }
+
 }
