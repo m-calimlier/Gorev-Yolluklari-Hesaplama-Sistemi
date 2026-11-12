@@ -60,11 +60,11 @@ public sealed class TravelTimelinePreviewEngine2026
     private readonly TemporaryDutyEngine _sameDayEngine;
     private readonly DailyRateTariff2026 _tariff;
 
-    public TravelTimelinePreviewEngine2026(DailyRateTariff2026 tariff)
+    public TravelTimelinePreviewEngine2026(DailyRateTariff2026 tariff, TemporaryConstants? constants = null)
     {
         ArgumentNullException.ThrowIfNull(tariff);
         _tariff = tariff;
-        _sameDayEngine = new TemporaryDutyEngine(tariff);
+        _sameDayEngine = new TemporaryDutyEngine(tariff, constants);
     }
 
     public TimelinePreviewResult Preview(TemporaryDutyItinerary2026 request)

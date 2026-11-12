@@ -4,12 +4,20 @@ using GorevYolluklari.Core.Tariffs;
 namespace GorevYolluklari.Core.Records;
 public sealed class WorkspaceRecords
 {
+    public CalculationConstants Constants { get; set; } = new();
     public int SchemaVersion { get; set; } = 1;
     public int Revision { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public List<PersonnelRecord> Personnel { get; set; } = [];
     public List<DutyRecord> Duties { get; set; } = [];
 }
+public sealed record CalculationConstants
+{
+    public TemporaryConstants Temporary { get; init; } = new();
+    public PermanentConstants Permanent { get; init; } = new();
+    public CommonConstants Common { get; init; } = new();
+}
+
 public sealed class PersonnelRecord
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -96,4 +104,6 @@ public sealed class DutyRecord
 public sealed record CalculationSnapshot(string Fingerprint, string Status, decimal? Amount,
     decimal? DailyRate, string? Category, string TariffReference, string Explanation,
     string LegalBasis, DateTimeOffset CreatedAt, PersonnelRecord PersonnelAtCalculation,
-    string RuleVersion = "ASAMA8-2026-1");
+    string RuleVersion = "ASAMA8-2026-1", IReadOnlyList<CalculationComponent>? Components = null);
+
+public sealed record CalculationComponent(string Label, decimal Amount);

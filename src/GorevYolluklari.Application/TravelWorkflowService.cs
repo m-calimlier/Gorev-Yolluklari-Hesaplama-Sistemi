@@ -4,15 +4,37 @@ using System.Text.Json;
 using GorevYolluklari.Core.Records;
 using GorevYolluklari.Core.Documents;
 using GorevYolluklari.Core.Integration;
+using GorevYolluklari.Core.Rules;
 using GorevYolluklari.Core.Tariffs;
 namespace GorevYolluklari.Application;
-public sealed class TravelWorkflowService(string tariffPath)
+public sealed class TravelWorkflowService(string tariffPath, CalculationConstants? constants = null)
 {
+    private readonly CalculationConstants _constants = constants ?? new();
+
+    private DailyRateTariff2026 LoadTariff()
+    {
+        var verified = DailyRateTariff2026.FromVerifiedJson(tariffPath);
+        return _constants.Common == new CommonConstants() ? verified : verified.ForSimulation(_constants.Common);
+    }
+
+    private bool IsSimulation(DraftKind kind) => _constants.Common != new CommonConstants() ||
+        (kind == DraftKind.TemporaryDuty ? _constants.Temporary != new TemporaryConstants() :
+            _constants.Permanent != new PermanentConstants());
+
+    private string RuleVersion(DraftKind kind)
+    {
+        if (!IsSimulation(kind)) return "ASAMA8-2026-1";
+        var module = kind == DraftKind.TemporaryDuty
+            ? JsonSerializer.Serialize(_constants.Temporary) : JsonSerializer.Serialize(_constants.Permanent);
+        var input = JsonSerializer.Serialize(_constants.Common) + module;
+        return "SIM-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(input)));
+    }
+
     public TimelinePreviewResult PreviewTimeline(PersonnelRecord person, DutyRecord duty)
     {
         if (duty.Kind != DraftKind.TemporaryDuty) throw new InvalidOperationException("Seyahat takvimi geçici görev içindir.");
-        var tariff = DailyRateTariff2026.FromVerifiedJson(tariffPath);
-        return new TravelTimelinePreviewEngine2026(tariff).Preview(new(
+        var tariff = LoadTariff();
+        return new TravelTimelinePreviewEngine2026(tariff, _constants.Temporary).Preview(new(
             new(DateOnly.FromDateTime(duty.Departure), person.Group, person.Grade, person.Indicator),
             duty.Station, duty.AssignmentReviewed && duty.StationReviewed && !string.IsNullOrWhiteSpace(duty.Reviewer),
             duty.AssignmentEvidence, duty.StationEvidence,
@@ -22,27 +44,40 @@ public sealed class TravelWorkflowService(string tariffPath)
     }
     public CalculationSnapshot Preview(PersonnelRecord person, DutyRecord duty)
     {
-        var tariff = DailyRateTariff2026.FromVerifiedJson(tariffPath);
+        var tariff = LoadTariff();
         var personnel = new PersonnelTariffInput(DateOnly.FromDateTime(duty.Departure), person.Group, person.Grade, person.Indicator);
         var reviewed = duty.AssignmentReviewed && duty.StationReviewed && !string.IsNullOrWhiteSpace(duty.Reviewer) &&
             !string.IsNullOrWhiteSpace(duty.AssignmentEvidence) && !string.IsNullOrWhiteSpace(duty.StationEvidence);
-        if (duty.Return < duty.Departure || duty.Return.Year != 2026 || duty.Departure.Year != 2026)
-            return Snapshot(person, duty, "İnceleme gerekli", null, null, null, "Tarih aralığı geçersiz veya 2026 dışında. Geçerli tarife yok.", "2026 H Cetveli");
+        var permanentDuty = duty.Kind == DraftKind.PermanentDuty;
+        if (duty.Departure == default || (!permanentDuty && duty.Return == default))
+            return Snapshot(person, duty, "Bilgi gerekli", null, null, null, permanentDuty
+                ? "Atama / işlem tarihini seçin." : "Ayrılış ve dönüş için tarih, saat ve dakika seçin.", "2026 H Cetveli");
+        if (duty.Departure.Year != 2026 || (!permanentDuty && duty.Return.Year != 2026))
+            return Snapshot(person, duty, "İnceleme gerekli", null, null, null, "Bu sürümde yalnız 2026 yılı tarifesi var.", "2026 H Cetveli");
+        if (!permanentDuty && duty.Return < duty.Departure)
+            return Snapshot(person, duty, "İnceleme gerekli", null, null, null, "Dönüş, ayrılıştan önce olamaz.", "2026 H Cetveli");
         if (duty.Kind == DraftKind.PermanentDuty)
         {
-            var r = new PermanentDutyEngine(tariff).PreviewRelocation(new(personnel, duty.Station, reviewed, duty.FamilyReviewed,
+            var r = new PermanentDutyEngine(tariff, _constants.Permanent).PreviewRelocation(new(personnel, duty.Station, reviewed, duty.FamilyReviewed,
                 duty.SpouseTransfer, duty.FamilyCount, duty.Kilometers, duty.DistanceEvidence));
+            IReadOnlyList<CalculationComponent>? components = null;
+            if (r.Status == IntegratedPreviewStatus.Preliminary && r.DailyRate is decimal rate)
+                components = [
+                    new("Kişi sabit unsuru", _constants.Permanent.Self(rate)),
+                    new("Aile sabit unsuru", _constants.Permanent.Family(rate, duty.FamilyCount)),
+                    new("Mesafeye bağlı unsur", _constants.Permanent.Distance(rate, duty.Kilometers))
+                ];
             return Snapshot(person, duty, r.Status.ToString(), r.UnroundedAmount, r.DailyRate, r.DailyCategory,
-                "Yalnız yer değiştirme bileşeni; tam sürekli görev toplamı değildir. " + r.Explanation, r.LegalBasis);
+                "Yalnız yer değiştirme bileşeni; tam sürekli görev toplamı değildir. " + r.Explanation, r.LegalBasis, components);
         }
         if (duty.Kind != DraftKind.TemporaryDuty)
             return Snapshot(person, duty, "İnceleme gerekli", null, null, null, "Görev türü geçersiz.", "");
         if (duty.Departure.Date == duty.Return.Date)
         {
-            var r = new TemporaryDutyEngine(tariff).PreviewSameDay(new(personnel, duty.Departure, duty.Return, duty.Station, reviewed, duty.StationEvidence));
+            var r = new TemporaryDutyEngine(tariff, _constants.Temporary).PreviewSameDay(new(personnel, duty.Departure, duty.Return, duty.Station, reviewed, duty.StationEvidence));
             return Snapshot(person, duty, r.Status.ToString(), r.UnroundedAmount, r.DailyRate, r.DailyCategory, r.Explanation, r.LegalBasis);
         }
-        var result = new MultiDayDutyPreviewEngine2026(tariff).Preview(new(personnel, duty.Station,
+        var result = new MultiDayDutyPreviewEngine2026(tariff, _constants.Temporary).Preview(new(personnel, duty.Station,
             reviewed, duty.AnnualPeriodReviewed, duty.PriorDaysReviewed && duty.PriorDays.HasValue,
             duty.EligibleDaysReviewed, duty.Article42ExceptionsExcluded, duty.LodgingReviewed,
             duty.PriorDays ?? 0, duty.ReviewedDays.Select(x => new ReviewedDutyDay(DateOnly.FromDateTime(x.Date), x.LodgingOrdinal, x.LodgingAmount, x.Receipt)).ToArray(),
@@ -50,25 +85,30 @@ public sealed class TravelWorkflowService(string tariffPath)
         if (duty.ReviewedDays.Any(x => x.Date.Date < duty.Departure.Date || x.Date.Date > duty.Return.Date))
             return Snapshot(person, duty, "İnceleme gerekli", null, null, null, "İncelenmiş gün görev aralığı dışında.", result.LegalBasis);
         return Snapshot(person, duty, result.Status.ToString(), result.CombinedTotalUnrounded, result.DailyRate,
-            tariff.Resolve(personnel).Category, result.Explanation, result.LegalBasis);
+            tariff.Resolve(personnel).Category, result.Explanation, result.LegalBasis,
+            result.PerDiemTotalUnrounded is decimal perDiem && result.LodgingTotalUnrounded is decimal lodging
+                ? [new("Gündelik", perDiem), new("Konaklama", lodging)] : null);
     }
-    private static CalculationSnapshot Snapshot(PersonnelRecord p, DutyRecord d, string status, decimal? amount, decimal? rate, string? category, string reason, string legal) =>
+    private CalculationSnapshot Snapshot(PersonnelRecord p, DutyRecord d, string status, decimal? amount, decimal? rate, string? category, string reason, string legal, IReadOnlyList<CalculationComponent>? components = null) =>
         new(Fingerprint(p, d), status, amount, rate, category, "BUT-002:2026:I-B", reason, legal, DateTimeOffset.UtcNow,
-            JsonSerializer.Deserialize<PersonnelRecord>(JsonSerializer.Serialize(p))!);
+            JsonSerializer.Deserialize<PersonnelRecord>(JsonSerializer.Serialize(p))!, RuleVersion(d.Kind), components);
     public static string Fingerprint(PersonnelRecord p, DutyRecord d)
     {
         var clone = JsonSerializer.Deserialize<DutyRecord>(JsonSerializer.Serialize(d))!; clone.Snapshot = null;
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { Person = p, Duty = clone }))));
     }
-    public bool IsCurrent(PersonnelRecord p, DutyRecord d) => d.Snapshot?.Fingerprint == Fingerprint(p, d);
+    public bool IsCurrent(PersonnelRecord p, DutyRecord d) => d.Snapshot?.RuleVersion == RuleVersion(d.Kind) && d.Snapshot.Fingerprint == Fingerprint(p, d);
     public DraftDecision PrepareDraft(PersonnelRecord p, DutyRecord d)
     {
+        if (IsSimulation(d.Kind) || d.Snapshot?.RuleVersion.StartsWith("SIM-", StringComparison.Ordinal) == true)
+            return new(DraftDecisionStatus.NeedsReview, "Simülasyon sabitleriyle PDF oluşturulmaz. Kaynak değerlerini geri yükleyip yeniden hesaplayın.", null);
         if (!IsCurrent(p, d) || d.Snapshot?.Amount is null || !d.AmountsReviewed || d.ReviewedAt is null || string.IsNullOrWhiteSpace(d.Reviewer))
             return new(DraftDecisionStatus.NeedsReview, "Güncel ön hesap ve tarihli kanıt/tutar incelemesi gerekli. Önce yeniden hesaplayın.", null);
         if (d.IndependentGross is null || d.IndependentNet is null)
             return new(DraftDecisionStatus.NeedsInput, "Bağımsız brüt ve net kontrol tutarları girilmelidir.", null);
         return DraftDocumentService.Create(new(d.Kind, d.DocumentNumber, p.FullName, p.Title, p.Institution,
-            d.Origin, d.Destination, DateOnly.FromDateTime(d.Departure), DateOnly.FromDateTime(d.Return), 2026,
+            d.Origin, d.Destination, DateOnly.FromDateTime(d.Departure),
+            DateOnly.FromDateTime(d.Kind == DraftKind.PermanentDuty ? d.Departure : d.Return), 2026,
             d.Snapshot.TariffReference, d.Snapshot.RuleVersion, d.AssignmentEvidence, d.StationEvidence,
             d.AssignmentReviewed && d.StationReviewed, d.AmountsReviewed, d.Expenses.Select(x => x.ToLine()).ToArray(),
             d.Advance, d.AdvanceEvidence, d.IndependentGross.Value, d.IndependentNet.Value));

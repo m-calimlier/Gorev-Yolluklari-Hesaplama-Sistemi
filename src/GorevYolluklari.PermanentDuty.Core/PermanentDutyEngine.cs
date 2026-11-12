@@ -4,7 +4,14 @@ namespace GorevYolluklari.Core.Integration;
 public sealed class PermanentDutyEngine
 {
  private readonly DailyRateTariff2026 _tariff;
- public PermanentDutyEngine(DailyRateTariff2026 tariff) => _tariff = tariff ?? throw new ArgumentNullException(nameof(tariff));
+    private readonly PermanentConstants? _constants;
+
+    public PermanentDutyEngine(DailyRateTariff2026 tariff, PermanentConstants? constants = null)
+    {
+        _tariff = tariff ?? throw new ArgumentNullException(nameof(tariff));
+        _constants = constants;
+    }
+
     public IntegratedPreview PreviewRelocation(RelocationDutyRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -32,7 +39,7 @@ public sealed class PermanentDutyEngine
             request.FamilyReviewed,
             request.JointCivilServantSpouseTransfer,
             decision.SourceReference,
-            request.DistanceEvidenceReference);
+            request.DistanceEvidenceReference, _constants);
         return FromDraft(result, decision);
     }
 

@@ -74,8 +74,14 @@ public sealed class MultiDayDutyPreviewEngine2026
     private const string Legal = "6245 m.3, m.33(d), m.39, m.42, m.43; 2026 H Cetveli I-B dipnot (1) (ön hesap)";
     private const string Tariff = "BUT-002:2026:I-B";
 
-    public MultiDayDutyPreviewEngine2026(DailyRateTariff2026 tariff) =>
+    private readonly TemporaryConstants _rules;
+
+    public MultiDayDutyPreviewEngine2026(DailyRateTariff2026 tariff, TemporaryConstants? constants = null)
+    {
         _tariff = tariff ?? throw new ArgumentNullException(nameof(tariff));
+        _rules = constants ?? new();
+        _rules.Validate();
+    }
 
     public MultiDayPreviewResult Preview(MultiDayDutyRequest2026 request)
     {
@@ -85,7 +91,7 @@ public sealed class MultiDayDutyPreviewEngine2026
             return Block(MultiDayPreviewStatus.NeedsInput, "Önceden incelenmiş gündelik günleri gerekli.");
         if (request.ReviewedDays.Any(day => day is null))
             return Block(MultiDayPreviewStatus.NeedsInput, "Boş gün kaydı kabul edilmez.");
-        if (request.ReviewedDays.Count > 180 || request.ApprovedPreviouslyCountedDays is < 0 or > 180)
+        if (request.ReviewedDays.Count > _rules.MaxDays || request.ApprovedPreviouslyCountedDays < 0 || request.ApprovedPreviouslyCountedDays > _rules.MaxDays)
             return Block(MultiDayPreviewStatus.NeedsReview, "Geçmiş gün sayısı/geçerli dönem sınırı inceleme gerektiriyor.");
         if (request.ReviewedDays.Any(day => day.Date.Year != 2026) || request.Personnel.DutyDate.Year != 2026)
             return Block(MultiDayPreviewStatus.NoApplicableYear, "2026 harici günler için bu tarife uygulanamaz.");
@@ -109,9 +115,9 @@ public sealed class MultiDayDutyPreviewEngine2026
                 "m.43 yolculuk günleri, geceleme ve hak kazanılan günler yetkili tarafından incelenmeli.");
         if (!request.Article42ExceptionsExcluded)
             return Block(MultiDayPreviewStatus.NeedsReview, "m.42 istisnalarına girilip girilmediği incelenmeli.");
-        if (request.ApprovedPreviouslyCountedDays + request.ReviewedDays.Count > 180)
+        if (request.ApprovedPreviouslyCountedDays + request.ReviewedDays.Count > _rules.MaxDays)
             return Block(MultiDayPreviewStatus.NeedsReview,
-                "180 gün sınırı aşan dönem: 181. güne kendiliğinden yeni gündelik atanamaz.");
+                $"{_rules.MaxDays} gün sınırı aşıldı; ayrı inceleme gerekli.");
 
         var rate = _tariff.Resolve(request.Personnel);
         if (rate.Status != RateDecisionStatus.ResolvedPreliminary)
@@ -137,7 +143,7 @@ public sealed class MultiDayDutyPreviewEngine2026
             var item = request.ReviewedDays[i];
             var count = checked(request.ApprovedPreviouslyCountedDays + i + 1);
             var baseRate = rate.DailyAmount!.Value;
-            var actualPerDiem = count <= 90 ? baseRate : baseRate * 2m / 3m;
+            var actualPerDiem = count <= _rules.FullDays ? baseRate : baseRate * _rules.ReducedNumerator / _rules.ReducedDivisor;
             var hasAnyLodgingField = item.DocumentedLodgingTL.HasValue || item.LodgingDayOrdinal.HasValue ||
                                      !string.IsNullOrWhiteSpace(item.LodgingReceiptReference);
             decimal? cap = null;
@@ -152,15 +158,15 @@ public sealed class MultiDayDutyPreviewEngine2026
                     !item.LodgingDayOrdinal.HasValue || string.IsNullOrWhiteSpace(item.LodgingReceiptReference))
                     return Block(MultiDayPreviewStatus.NeedsInput, "Konaklama tutarı, görev günü sırası ve belge referansı eksik/geçersiz.");
                 lodgingOrdinal = item.LodgingDayOrdinal.Value;
-                if (lodgingOrdinal is < 1 or > 180 || !lodgingOrdinals.Add(lodgingOrdinal))
+                if (lodgingOrdinal < 1 || lodgingOrdinal > _rules.MaxDays || !lodgingOrdinals.Add(lodgingOrdinal))
                     return Block(MultiDayPreviewStatus.NeedsReview, "Konaklama gün sırası geçersiz veya yinelenmiş.");
                 if (lodgingOrdinal != count)
                     return Block(MultiDayPreviewStatus.NeedsReview,
                         "m.42 gün sırası ve konaklama dönem sıra numarası farklı: yeni görev/ara verme yorumu için inceleme gerekir.");
                 receipt = item.DocumentedLodgingTL.Value;
-                cap = lodgingOrdinal <= 10 ? baseRate * 160m / 100m
-                    : lodgingOrdinal <= 90 ? baseRate * 50m / 100m
-                    : actualPerDiem * 40m / 100m;
+                cap = lodgingOrdinal <= _rules.FirstLodgingDays ? baseRate * _rules.FirstLodgingPercent / 100m
+                    : lodgingOrdinal <= _rules.FullDays ? baseRate * _rules.MiddleLodgingPercent / 100m
+                    : actualPerDiem * _rules.LastLodgingPercent / 100m;
                 accommodation = Math.Min(receipt.Value, cap.Value);
             }
             dailyTotal += actualPerDiem;

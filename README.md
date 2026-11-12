@@ -65,3 +65,6 @@ Tam kaynak ön kontrolleri yerel resmî PDF'leri gerektirir. GitHub deposuna res
 Açık işler: gerçek anonim örneklerle kuruş/yuvarlama ve form mutabakatı, güncel mevzuat incelemesi, BUT-003 katalog ayrımı, temiz ikinci Windows bilgisayarında çevrimdışı kabul ve gerçek yüksek DPI/klavye kullanıcı testi. Bu kapılar kapanmadan resmî ödeme kullanımına hazır sayılmaz.
 
 Ek Ders Hakediş Sistemi ve DoğruFatura'dan yalnız genel tasarım/iş akışı örüntüleri esin alındı; kaynak kodu veya asset kopyalanmadı. Bu depoda açık kaynak lisansı verilmiş olduğu varsayılmamalıdır; üçüncü taraf paket lisansları ayrıca geçerlidir.
+
+
+Geçici ve sürekli görev hesapları bağımsız çekirdek projelerindedir. Başlangıçta modül seçilir ve ilgili veri alanları açılır. 12.11.2026 doğrulamasında 396/396 kontrol geçti. WPF Release derlemesi 0 hata ve 0 uyarıyla tamamlandı. Kaynak örneklerinin kapsamı [modül ayrımı raporunda](docs/MODUL_AYRIMI_VE_ORNEK_DOGRULAMA_2026-11-10.md) açıklanır.

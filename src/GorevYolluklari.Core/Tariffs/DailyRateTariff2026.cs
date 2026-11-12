@@ -22,6 +22,18 @@ public sealed record DailyRateDecision(
 /// H Cetvelini dosyadan alır. 2026 rakamlarını resmî cetvelin doğrulanmış I-B satırlarına
 /// karşı birebir kontrol eder; başka yıl veya özel statü için tahminde bulunmaz.
 /// </summary>
+public sealed record CommonConstants(decimal RateA = 890, decimal RateB = 880, decimal RateC = 870,
+    decimal RateD = 860, decimal RateE = 850, int IndicatorA = 8000, int IndicatorB = 6400,
+    int IndicatorC = 3600, int UpperGrade = 4)
+{
+    public void Validate()
+    {
+        if (new[] { RateA, RateB, RateC, RateD, RateE }.Any(rate => rate is <= 0 or > 100000) ||
+            IndicatorC < 1 || IndicatorB <= IndicatorC || IndicatorA <= IndicatorB || UpperGrade is < 1 or > 14)
+            throw new ArgumentException("Ortak sabitlerde gündelik, ek gösterge sırası veya derece geçersiz.");
+    }
+}
+
 public sealed class DailyRateTariff2026
 {
     private static readonly IReadOnlyDictionary<string, decimal> OfficialRates =
@@ -34,7 +46,22 @@ public sealed class DailyRateTariff2026
     public const string SourceId = "BUT-002";
     public const string SourceUrl = "https://www.sbb.gov.tr/wp-content/uploads/2025/12/8-H-Cetveli_2026Butcesi.pdf";
     private readonly IReadOnlyDictionary<string, decimal> _rates;
-    private DailyRateTariff2026(IReadOnlyDictionary<string, decimal> rates) => _rates = rates;
+    private readonly CommonConstants _constants;
+    private DailyRateTariff2026(IReadOnlyDictionary<string, decimal> rates, CommonConstants? constants = null)
+    {
+        _rates = rates;
+        _constants = constants ?? new();
+    }
+
+    public DailyRateTariff2026 ForSimulation(CommonConstants constants)
+    {
+        constants.Validate();
+        return new DailyRateTariff2026(new Dictionary<string, decimal>
+        {
+            ["B_a"] = constants.RateA, ["B_b"] = constants.RateB, ["B_c"] = constants.RateC,
+            ["B_d"] = constants.RateD, ["B_e"] = constants.RateE
+        }, constants);
+    }
 
     public static DailyRateTariff2026 FromVerifiedJson(string fullPath)
     {
@@ -76,10 +103,10 @@ public sealed class DailyRateTariff2026
             return Reject(RateDecisionStatus.NeedsInput, "Derece 1-15, ek gösterge 0 veya daha büyük olmalıdır.");
         var indicator = input.AdditionalIndicator.Value;
         var grade = input.MonthlyOrCadreGrade.Value;
-        string id = indicator >= 8000 ? "B_a"
-                  : indicator >= 6400 ? "B_b"
-                  : indicator >= 3600 ? "B_c"
-                  : grade <= 4 ? "B_d" : "B_e";
+        string id = indicator >= _constants.IndicatorA ? "B_a"
+                  : indicator >= _constants.IndicatorB ? "B_b"
+                  : indicator >= _constants.IndicatorC ? "B_c"
+                  : grade <= _constants.UpperGrade ? "B_d" : "B_e";
         return new DailyRateDecision(RateDecisionStatus.ResolvedPreliminary, _rates[id], id,
             "2026 H Cetveli I-B seçimi; hak sahipliği, görev yeri ve özel istisnalar ayrıca incelenmelidir.",
             SourceId + ":2026:I-" + id,

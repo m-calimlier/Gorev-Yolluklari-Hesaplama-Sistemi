@@ -16,8 +16,10 @@ public static class RelocationExpensePreview
         bool familyReviewed,
         bool jointCivilServantSpouseTransfer,
         string tariffReference,
-        string? distanceEvidenceReference)
+        string? distanceEvidenceReference, PermanentConstants? constants = null)
     {
+        var rules = constants ?? new();
+        rules.Validate();
         if (dailyRate <= 0m) throw new ArgumentOutOfRangeException(nameof(dailyRate));
         if (approvedFamilyMemberCount < 0) throw new ArgumentOutOfRangeException(nameof(approvedFamilyMemberCount));
         if (approvedKilometers < 0m) throw new ArgumentOutOfRangeException(nameof(approvedKilometers));
@@ -30,12 +32,12 @@ public static class RelocationExpensePreview
         if (jointCivilServantSpouseTransfer)
             return new(DraftStatus.NeedsReview, "m.45 eşin nakli istisnası: c bendi için ayrı değerlendirme zorunludur.", null, basis, tariffReference, distanceEvidenceReference);
 
-        decimal selfFixed = dailyRate * 20m;
-        decimal familyFixed = dailyRate * 10m * Math.Min(approvedFamilyMemberCount, 4);
-        decimal distanceCost = dailyRate * 0.05m * approvedKilometers;
+        decimal selfFixed = rules.Self(dailyRate);
+        decimal familyFixed = rules.Family(dailyRate, approvedFamilyMemberCount);
+        decimal distanceCost = rules.Distance(dailyRate, approvedKilometers);
         decimal raw = selfFixed + familyFixed + distanceCost;
         return new(DraftStatus.Preliminary,
-            $"m.45: 20x + {Math.Min(approvedFamilyMemberCount, 4) * 10}x aile (40x tavan) + %5 x {approvedKilometers} km. Seyahat ücretleri dahil değil.",
+            $"m.45: {rules.SelfDays}x + {Math.Min(approvedFamilyMemberCount, rules.MaximumFamily) * rules.FamilyDays}x aile ({rules.MaximumFamily * rules.FamilyDays}x tavan) + %{rules.KilometerPercent} x {approvedKilometers} km. Seyahat ücretleri dahil değil.",
             raw, basis, tariffReference, distanceEvidenceReference);
     }
 }

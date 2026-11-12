@@ -1,0 +1,461 @@
+using System.IO;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Media;
+using GorevYolluklari.Core.Documents;
+using GorevYolluklari.Core.Records;
+using GorevYolluklari.Core.Tariffs;
+using GorevYolluklari.Storage;
+
+namespace GorevYolluklari.App;
+
+public partial class MainWindow
+{
+    private void Navigate()
+    {
+        if (_navigating) return;
+        var target = Navigation.SelectedIndex;
+        if (target < 0 || target == _currentPage)
+        {
+            if (Page.Children.Count == 0 && target >= 0) ShowPage();
+            return;
+        }
+        var previous = _currentPage;
+        try
+        {
+            CommitEditors();
+            _currentPage = target;
+            ShowPage();
+        }
+        catch (Exception ex)
+        {
+            _navigating = true;
+            Navigation.SelectedIndex = _currentPage = previous;
+            _navigating = false;
+            Status.Text = ex.Message;
+        }
+    }
+
+    private void MarkChanged(object? source)
+    {
+        if (ReferenceEquals(source, _formPerson) && source is not null)
+        {
+            _personChanged = true;
+            return;
+        }
+        if (Navigation.SelectedIndex == 1 &&
+            (source is null or ReviewedDayEntry or ExpenseEntry || ReferenceEquals(source, _form) || ReferenceEquals(source, _formPerson)))
+            _formChanged = true;
+        else
+            _dirty = true;
+    }
+
+    private string? _formPersonBaseline;
+    private bool _personChanged;
+    private TextBlock? _personStatus;
+    private FrameworkElement? _taskStart;
+    private readonly List<FrameworkElement> _dependentEntryCards = [];
+
+    private bool PersonIsReady => _formPerson is not null && _formPersonBaseline is not null &&
+        JsonSerializer.Serialize(_formPerson) == _formPersonBaseline;
+
+    private (StackPanel Left, StackPanel Right) EntryRow()
+    {
+        var row = new Grid();
+        row.ColumnDefinitions.Add(new ColumnDefinition());
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(14) });
+        row.ColumnDefinitions.Add(new ColumnDefinition());
+        var left = new StackPanel();
+        var right = new StackPanel();
+        System.Windows.Controls.Grid.SetColumn(right, 2);
+        row.Children.Add(left);
+        row.Children.Add(right);
+        Page.Children.Add(row);
+        return (left, right);
+    }
+
+    private Panel Dependent(Panel panel)
+    {
+        _dependentEntryCards.Add(panel);
+        return panel;
+    }
+
+    private void RefreshEntryAvailability()
+    {
+        var ready = PersonIsReady;
+        foreach (var card in _dependentEntryCards) card.IsEnabled = _formPersonBaseline is not null;
+        if (_personStatus is not null)
+            _personStatus.Text = ready ? _formPerson!.FullName + " · Kayıt hazır" : "Devam etmek için kişiyi kaydedin.";
+    }
+
+
+    private static T Copy<T>(T value) => JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(value))!;
+
+    private void EntryPage()
+    {
+        Page.Children.Add(Text("Veri girişi", 28));
+        var tabs = new TabControl { Margin = new(0, 0, 0, 14), Style = (Style)FindResource("DutyTabs") };
+        var tabStyle = (Style)FindResource("DutyTab");
+        // WPF otomatik olarak bir sekme seçer. Görünmeyen boş sekme, açık kullanıcı seçimini korur.
+        tabs.Items.Add(new TabItem { Visibility = Visibility.Collapsed, IsEnabled = false });
+        tabs.Items.Add(new TabItem { Header = "Geçici Görev", Style = tabStyle });
+        tabs.Items.Add(new TabItem { Header = "Sürekli Görev", Style = tabStyle });
+        tabs.SelectedIndex = _selectedModule switch { DraftKind.TemporaryDuty => 1, DraftKind.PermanentDuty => 2, _ => 0 };
+        AutomationProperties.SetName(tabs, "Görev türü");
+        tabs.SelectionChanged += (_, e) =>
+        {
+            if (!ReferenceEquals(e.Source, tabs) || tabs.SelectedIndex < 1) return;
+            Safe(() =>
+            {
+                var requested = tabs.SelectedIndex == 1 ? DraftKind.TemporaryDuty : DraftKind.PermanentDuty;
+                if ((_formChanged || _personChanged) && _dialog("Bu formdaki değişiklikler bırakılsın mı?", "Sekme değiştir", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+                {
+                    ShowPage();
+                    return;
+                }
+                StartEntry(requested);
+            });
+            if (Page.Children.Contains(tabs) && tabs.SelectedIndex != (_selectedModule switch
+                { DraftKind.TemporaryDuty => 1, DraftKind.PermanentDuty => 2, _ => 0 }))
+                ShowPage();
+        };
+        Page.Children.Add(tabs);
+        if (_form is null) Card("Görev türünü seçin").Children.Add(Text("Geçici veya Sürekli görev sekmesinden başlayın."));
+        else
+        {
+            var existing = _vm.Duties.Where(d => d.Kind == _form.Kind).ToArray();
+            if (existing.Length > 0)
+            {
+                var picker = new ComboBox { ItemsSource = existing, SelectedItem = existing.FirstOrDefault(d => d.Id == _form.Id) };
+                AutomationProperties.SetName(picker, "Mevcut görev");
+                Page.Children.Add(new Label { Content = "Mevcut Görevi Aç" });
+                Page.Children.Add(picker);
+                var restoring = false;
+                picker.SelectionChanged += (_, _) =>
+                {
+                    if (restoring || picker.SelectedItem is not DutyRecord duty || duty.Id == _form?.Id) return;
+                    Safe(() => OpenEntry(duty));
+                    restoring = true;
+                    picker.SelectedItem = existing.FirstOrDefault(d => d.Id == _form?.Id);
+                    restoring = false;
+                };
+            }
+            DutyPage(_form);
+        }
+    }
+
+    private void StartEntry(DraftKind kind)
+    {
+        ResetPermanentStep();
+        _selectedModule = kind;
+        _formPerson = new PersonnelRecord();
+        _formPersonBaseline = null;
+        _form = new DutyRecord
+        {
+            Kind = kind,
+            PersonnelId = _formPerson.Id,
+            Departure = default,
+            Return = default,
+            DocumentNumber = (kind == DraftKind.TemporaryDuty ? "GEC-" : "SUR-") + Guid.NewGuid().ToString("N")[..8]
+        };
+        _formChanged = false;
+        _personChanged = false;
+        ShowPage();
+    }
+
+    private void OpenEntry(DutyRecord duty, bool reviewPdf = false)
+    {
+        if ((_formChanged || _personChanged) && _dialog("Açık formdaki değişiklikler bırakılsın mı?", "Görev formu", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+            return;
+        ResetPermanentStep();
+        _selectedModule = duty.Kind;
+        _form = Copy(duty);
+        _formPerson = Copy(Person(duty));
+        _formPersonBaseline = JsonSerializer.Serialize(_formPerson);
+        _formChanged = false;
+        _personChanged = false;
+        if (duty.Kind == DraftKind.PermanentDuty)
+        {
+            _permanentStep = PermanentStep.Assignment;
+            if (reviewPdf)
+            {
+                var preview = Service.Preview(_formPerson, _form);
+                if (preview.Amount is not null)
+                {
+                    _permanentPreview = preview;
+                    _permanentStep = PermanentStep.Result;
+                    _permanentExpensesOpen = true;
+                }
+            }
+        }
+        if (Navigation.SelectedIndex == 1) ShowPage();
+        else Navigation.SelectedIndex = 1;
+    }
+
+    private void BuildEntryPersonnel(Panel card)
+    {
+        var person = _formPerson!;
+        var choices = new[] { new PersonChoice(null, "Yeni kişi") }
+            .Concat(_vm.Personnel.Select(p => new PersonChoice(p, p.FullName))).ToArray();
+        var picker = new ComboBox
+        {
+            ItemsSource = choices,
+            DisplayMemberPath = nameof(PersonChoice.Label),
+            SelectedItem = choices.FirstOrDefault(x => x.Person?.Id == person.Id) ?? choices[0]
+        };
+        AutomationProperties.SetName(picker, "Personel seçimi");
+        card.Children.Add(new Label { Content = "Personel Seçimi" });
+        card.Children.Add(picker);
+        var restoring = false;
+        picker.SelectionChanged += (_, _) =>
+        {
+            if (restoring || picker.SelectedItem is not PersonChoice selected) return;
+            var oldChoice = choices.FirstOrDefault(x => x.Person?.Id == _formPerson!.Id) ?? choices[0];
+            Safe(() =>
+            {
+                if (_personChanged && _dialog("Kişi bilgilerindeki değişiklikler bırakılsın mı?", "Personel seçimi",
+                    MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+                SetEntryPerson(selected.Person is null ? new PersonnelRecord() : Copy(selected.Person));
+            });
+            restoring = true;
+            picker.SelectedItem = oldChoice;
+            restoring = false;
+        };
+        var fields = new UniformGrid { Columns = 2 };
+        card.Children.Add(fields);
+        var identity = new StackPanel();
+        var tariff = new StackPanel();
+        fields.Children.Add(identity);
+        fields.Children.Add(tariff);
+        Field(identity, "Ad soyad", person, nameof(person.FullName));
+        Field(identity, "Unvan", person, nameof(person.Title));
+        Field(identity, "Kurum", person, nameof(person.Institution));
+        Choice(tariff, "Statü", Enum.GetValues<PersonnelTariffGroup>(), person, nameof(person.Group));
+        Choice(tariff, "Derece", Enumerable.Range(1, 15), person, nameof(person.Grade));
+        Field(tariff, "Ek gösterge", person, nameof(person.Indicator));
+        Button(card, "Kişiyi kaydet", SaveEntryPerson);
+        _personStatus = Text("", 12);
+        card.Children.Add(_personStatus);
+    }
+
+    public sealed record PersonChoice(PersonnelRecord? Person, string Label);
+
+    private void SetEntryPerson(PersonnelRecord person)
+    {
+        _formPerson = person;
+        _personChanged = false;
+        _formPersonBaseline = _vm.Personnel.Any(p => p.Id == person.Id) ? JsonSerializer.Serialize(person) : null;
+        var duty = Duty();
+        duty.PersonnelId = person.Id;
+        Invalidate(duty, nameof(duty.PersonnelId));
+        ShowPage();
+    }
+
+    private void CancelEntry()
+    {
+        if ((_formChanged || _personChanged) && _dialog("Formdaki değişiklikler bırakılsın mı?", "Veri girişi", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+            return;
+        ClearEntry();
+        ShowPage();
+    }
+
+    private void ClearEntry()
+    {
+        ResetPermanentStep();
+        _form = null;
+        _formPerson = null;
+        _formPersonBaseline = null;
+        _selectedModule = null;
+        _formChanged = false;
+        _personChanged = false;
+    }
+
+    private void SaveCurrent()
+    {
+        if (Navigation.SelectedIndex != 1 || _form is null) Save();
+        else if (_form.Kind == DraftKind.PermanentDuty && _permanentStep == PermanentStep.Person) SaveEntryPerson();
+        else if (_form.Kind == DraftKind.PermanentDuty && _permanentStep == PermanentStep.Assignment) PreviewPermanent();
+        else if (PersonIsReady) SaveEntry();
+        else SaveEntryPerson();
+    }
+
+    private void SaveEntryPerson()
+    {
+        var person = _formPerson!;
+        CheckFormIssues(PersonIssues(person));
+        if (!PersonIsReady)
+        {
+            var next = CurrentWorkspace();
+            var index = next.Personnel.FindIndex(p => p.Id == person.Id);
+            if (index < 0) next.Personnel.Add(Copy(person));
+            else next.Personnel[index] = Copy(person);
+            SaveWorkspace(next, _vm.SelectedDuty?.Id);
+            _formPersonBaseline = JsonSerializer.Serialize(person);
+            _personChanged = false;
+            if (_form?.Kind != DraftKind.PermanentDuty) ShowPage();
+        }
+        _personChanged = false;
+        if (_form?.Kind == DraftKind.PermanentDuty)
+        {
+            MoveToPermanentAssignment();
+            return;
+        }
+        RefreshEntryAvailability();
+        Status.Text = "Kişi kaydedildi. Sağdaki görev kartından devam edin.";
+        _taskStart?.Focus();
+    }
+
+    private void SaveEntry()
+    {
+        if (!PersonIsReady) throw new InvalidOperationException("Önce kişi bilgilerini kaydedin.");
+        var person = _formPerson!;
+        var candidate = Copy(Duty());
+        if (_formPersonBaseline is not null &&
+            JsonSerializer.Serialize(_vm.Personnel.FirstOrDefault(p => p.Id == person.Id)) != _formPersonBaseline)
+            throw new InvalidOperationException("Personel kaydı form açıkken değişti. Güncel personeli seçip yeniden deneyin.");
+        CheckFormIssues(DutyIssues(candidate, person));
+        if (_vm.Duties.Any(d => d.Id != candidate.Id && string.Equals(d.DocumentNumber.Trim(),
+            candidate.DocumentNumber.Trim(), StringComparison.OrdinalIgnoreCase)))
+            CheckFormIssues([("DocumentNumber", "Bu belge numarası başka bir görevde kullanılıyor.")]);
+
+        candidate.ReviewedAt = candidate.AmountsReviewed ? DateTimeOffset.UtcNow : null;
+        var service = Service;
+        candidate.Snapshot = service.Preview(person, candidate);
+        if (candidate.Snapshot.Amount is null)
+            CheckFormIssues([(candidate.Kind == DraftKind.TemporaryDuty && candidate.Departure.Date != candidate.Return.Date
+                ? "ReviewedDays" : "Departure", candidate.Snapshot.Explanation)]);
+        CheckFormIssues(CalculatedExpenseIssues(candidate, candidate.Snapshot));
+        if (candidate.AmountsReviewed)
+        {
+            var review = service.PrepareDraft(person, candidate);
+            if (!review.MayPrintDraft) CheckFormIssues(DocumentIssues(candidate, review.Reason));
+        }
+        else ReviewPdfOnSave(candidate, person);
+
+        var next = CurrentWorkspace();
+        var dutyIndex = next.Duties.FindIndex(d => d.Id == candidate.Id);
+        if (dutyIndex < 0) next.Duties.Add(candidate);
+        else next.Duties[dutyIndex] = candidate;
+        SaveWorkspace(next, candidate.Id);
+        ClearEntry();
+        Status.Text = "Görev ve hesap sonucu kaydedildi.";
+        _dialog("Görev ve hesap sonucu kaydedildi.", "Kayıt başarılı", MessageBoxButton.OK);
+        Navigation.SelectedIndex = 2;
+    }
+
+    private WorkspaceRecords CurrentWorkspace() => new()
+    {
+        Revision = _vm.Workspace.Revision,
+        Constants = _vm.Workspace.Constants,
+        Personnel = _vm.Personnel.ToList(),
+        Duties = _vm.Duties.ToList()
+    };
+
+    private void SaveWorkspace(WorkspaceRecords next, Guid? selectedDutyId)
+    {
+        if (_loadFailed) throw new InvalidOperationException("Kayıt dosyası açılamadı. Yedekten kurtarın.");
+        _repository.Save(next, _vm.Workspace.Revision);
+        _vm.Load(next);
+        _vm.SelectedDuty = _vm.Duties.FirstOrDefault(d => d.Id == selectedDutyId);
+        _dirty = false;
+    }
+
+    private void DeleteDuty(DutyRecord duty)
+    {
+        if (_dialog(duty + " kaydı silinsin mi?", "Görevi sil", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        var next = CurrentWorkspace();
+        next.Duties.RemoveAll(d => d.Id == duty.Id);
+        SaveWorkspace(next, null);
+        if (_form?.Id == duty.Id) ClearEntry();
+        Status.Text = "Görev kaydı silindi.";
+        ShowPage();
+    }
+
+    private void ResultsPage(bool home)
+    {
+        Page.Children.Add(Text(home ? "Ana Sayfa" : "Hesapla · sonuçlar", 28));
+        var records = _vm.Duties.Where(d => d.Snapshot?.Amount is not null)
+            .OrderByDescending(d => d.Snapshot!.CreatedAt).ToArray();
+        var first = records.Length > 0 ? EntryRow() : default;
+        var summary = Card(home ? "Hesap arşivi" : "Hesaplanan görevler", first.Left);
+        if (home)
+        {
+            var metrics = new UniformGrid { Columns = 3, Margin = new(0, 0, 0, 12) };
+            metrics.Children.Add(Metric("Hesaplanan kayıt", records.Length.ToString(Tr)));
+            metrics.Children.Add(Metric("Geçici görev", records.Count(d => d.Kind == DraftKind.TemporaryDuty).ToString(Tr)));
+            metrics.Children.Add(Metric("Sürekli görev", records.Count(d => d.Kind == DraftKind.PermanentDuty).ToString(Tr)));
+            summary.Children.Add(metrics);
+        }
+        if (records.Length == 0)
+        {
+            summary.Children.Add(Text("Henüz hesaplanmış görev yok."));
+            Button(summary, "Veri girişine git", () => Navigation.SelectedIndex = 1);
+            return;
+        }
+
+        var selected = records.Contains(_vm.SelectedDuty) ? _vm.SelectedDuty! : records[0];
+        _vm.SelectedDuty = selected;
+        var picker = new ComboBox { ItemsSource = records, SelectedItem = selected };
+        AutomationProperties.SetName(picker, "Hesaplanmış görev");
+        summary.Children.Add(new Label { Content = "Görev Seçimi" });
+        summary.Children.Add(picker);
+        picker.SelectionChanged += (_, _) =>
+        {
+            if (picker.SelectedItem is not DutyRecord duty) return;
+            _vm.SelectedDuty = duty;
+            ShowPage();
+        };
+
+        var snapshot = selected.Snapshot!;
+        var person = Person(selected);
+        var current = Service.IsCurrent(person, selected);
+        var calculation = Card(person.FullName, first.Right);
+        calculation.Children.Add(Text(selected.Kind == DraftKind.TemporaryDuty ? "Geçici görev · ön hesap" : "Sürekli görev · yer değiştirme"));
+        var figures = new UniformGrid { Columns = 2, Margin = new(0, 0, 0, 12) };
+        figures.Children.Add(Metric("Ham ön hesap", Money(snapshot.Amount)));
+        figures.Children.Add(Metric("Gündelik", Money(snapshot.DailyRate)));
+        calculation.Children.Add(figures);
+        foreach (var part in snapshot.Components ?? [])
+            calculation.Children.Add(Text($"{part.Label} · {Money(part.Amount)}"));
+        calculation.Children.Add(Text(snapshot.Explanation));
+        calculation.Children.Add(Text(snapshot.LegalBasis + " · " + snapshot.TariffReference));
+        if (!current) calculation.Children.Add(Text("Eski hesap. Güncel bilgilerle yeniden kaydedin."));
+        if (snapshot.RuleVersion.StartsWith("SIM-", StringComparison.Ordinal))
+            calculation.Children.Add(Text("Simülasyon · düzenlenmiş sabitler kullanıldı."));
+
+        var second = EntryRow();
+        var identity = Card("Personel ve güzergâh", second.Left);
+        identity.Children.Add(Text($"{person.Title} · {person.Institution}"));
+        var dates = selected.Kind == DraftKind.PermanentDuty ? $"{selected.Departure:dd.MM.yyyy}"
+            : $"{selected.Departure:dd.MM.yyyy} – {selected.Return:dd.MM.yyyy}";
+        identity.Children.Add(Text($"{selected.Origin} → {selected.Destination}  ·  {dates}"));
+
+        var review = Service.PrepareDraft(person, selected);
+        var document = Card("Belge durumu", second.Right);
+        if (review.MayPrintDraft) document.Children.Add(Text("Kontrol taslağı oluşturulabilir."));
+        else
+        {
+            var reason = Text(review.Reason);
+            reason.Foreground = Brushes.LightCoral;
+            document.Children.Add(reason);
+            Button(document, "PDF eksiklerini aç", () => OpenPdfIssues(selected, review.Reason));
+        }
+        if (selected.Expenses.Count > 0)
+        {
+            foreach (var row in selected.Expenses)
+                document.Children.Add(Text($"{row.Description} · {Money(row.Amount)}"));
+        }
+        if (review.Document is { } draft)
+            document.Children.Add(Text($"Brüt {Money(draft.GrossTry)} · Avans {Money(draft.AdvanceTry)} · Net {Money(draft.NetTry)}"));
+        var actions = new WrapPanel();
+        Page.Children.Add(actions);
+        Button(actions, "Sil", () => DeleteDuty(selected));
+        Button(actions, "Düzenle", () => OpenEntry(selected));
+        Button(actions, "PDF", () => MakePdf(selected)).IsEnabled = review.MayPrintDraft;
+    }
+
+    private static string Money(decimal? amount) => amount is decimal value ? value.ToString("N2", Tr) + " TL" : "—";
+}

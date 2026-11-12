@@ -11,6 +11,11 @@
     <ApplicationIcon>Assets/GorevYolluklari.ico</ApplicationIcon><Title>Görev Yollukları Hesaplama Sistemi</Title>
   </PropertyGroup>
   <ItemGroup>
+    <Resource Include="Assets/RotaBelge.png" />
+    <EmbeddedResource Include="Assets/KgmIlIlce.json" LogicalName="KgmIlIlce.json" />
+    <InternalsVisibleTo Include="GorevYolluklari.UiChecks" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\GorevYolluklari.Core\GorevYolluklari.Core.csproj" />
     <ProjectReference Include="..\GorevYolluklari.Storage\GorevYolluklari.Storage.csproj" />
     <ProjectReference Include="..\GorevYolluklari.Application\GorevYolluklari.Application.csproj" />

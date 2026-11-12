@@ -50,3 +50,13 @@ Türkiye'de MEB okul/kurum mali işlerinde yurt içi **geçici ve sürekli göre
 - Temiz ikinci Windows makinesi, gerçek yüksek DPI/klavye kabulü, güncel mevzuat ve resmî form/kuruş mutabakatı hâlâ ayrı kabul kapılarıdır.
 
 Bu dosyayı kaynak gerçekliğiyle çeliştiği yerde sorgula; daha ayrıntılı durum için devir notuna bak.
+
+## 10.11.2026 — bağımsız görev çekirdekleri
+- Geçici ve sürekli görev ayrı `GorevYolluklari.TemporaryDuty.Core` / `GorevYolluklari.PermanentDuty.Core` projelerinde; ortak Contracts tarifesi kullanılır. Eski Core API uyumluluk katmanıdır.
+- Başlangıçta modül seçilir, ilgili veri alanları açılır. JSON şeması değişmedi.
+- Modül ayrımı doğrulaması: **342/342**, WPF Release 0 hata / 0 uyarı. Ayrıntı: `docs/MODUL_AYRIMI_VE_ORNEK_DOGRULAMA_2026-11-10.md`.
+- 12.11.2026 doğrulaması: **396/396**, WPF Release 0 hata / 0 uyarı.
+- Dış kaynak örnekleri yalnız konaklama ve yer değiştirme bileşenlerini doğrular; tam resmî ödeme mutabakatı tamamlanmış değildir.
+
+## Çalışma sonrası açılış
+- Uygulamada değişiklik yapılan her çalışma sonunda, doğrulanan güncel sürümü masaüstünde görünür olarak başlat ve pencerenin açıldığını kontrol et.

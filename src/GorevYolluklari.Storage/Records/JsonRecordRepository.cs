@@ -64,7 +64,7 @@ public sealed class JsonRecordRepository
         using var guard = new FileStream(FilePath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         int revision;
         try { revision = Load().Revision; }
-        catch (Exception ex) when (ex is JsonException or InvalidDataException) { revision = restored.Revision; }
+        catch (Exception ex) when (ex is JsonException or InvalidDataException or ArgumentException) { revision = restored.Revision; }
         if (File.Exists(FilePath)) BackupUnlocked();
         restored.Revision = checked(Math.Max(revision, restored.Revision) + 1);
         restored.UpdatedAt = DateTimeOffset.UtcNow;
@@ -72,6 +72,11 @@ public sealed class JsonRecordRepository
     }
     private static void Validate(WorkspaceRecords data)
     {
+        if (data.Constants is null || data.Constants.Temporary is null || data.Constants.Permanent is null || data.Constants.Common is null)
+            throw new InvalidDataException("Sabitler eksik.");
+        data.Constants.Temporary.Validate();
+        data.Constants.Permanent.Validate();
+        data.Constants.Common.Validate();
         if (data.SchemaVersion != 1 || data.Revision < 0 || data.Personnel is null || data.Duties is null)
             throw new InvalidDataException("Kayıt şeması desteklenmiyor veya eksik. Dosya değiştirilmedi.");
         if (data.Personnel.Any(x => x is null || x.Id == Guid.Empty || string.IsNullOrWhiteSpace(x.FullName)) ||

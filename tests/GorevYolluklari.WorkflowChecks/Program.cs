@@ -89,6 +89,32 @@ try
     Check("Bagimsiz toplam uyusmazligi blok", !service.PrepareDraft(person, duty).MayPrintDraft);
     duty.IndependentNet = 850m; person.Grade = 1;
     Check("Personel degisince taslak blok", !service.PrepareDraft(person, duty).MayPrintDraft);
+    var constants = new CalculationConstants
+    {
+        Temporary = new(MealDivisor: 4),
+        Permanent = new(SelfDays: 21),
+        Common = new(RateE: 900)
+    };
+    var simulation = new TravelWorkflowService(tariffPath, constants);
+    person.Grade = 5;
+    duty.Snapshot = simulation.Preview(person, duty);
+    Check("Sabitler gecici motor sonucuna uygulanir", duty.Snapshot.Amount == 450m && duty.Snapshot.DailyRate == 900m);
+    Check("Simulasyon kendi surumuyle guncel", simulation.IsCurrent(person, duty) && !service.IsCurrent(person, duty));
+    Check("Simulasyon kaydinda PDF kapali", !simulation.PrepareDraft(person, duty).MayPrintDraft);
+    var permanentDuty = DutyRecord.CreateDemo(person.Id);
+    permanentDuty.Kind = DraftKind.PermanentDuty;
+    permanentDuty.AssignmentReviewed = permanentDuty.StationReviewed = permanentDuty.FamilyReviewed = true;
+    permanentDuty.Reviewer = "SENTETİK";
+    permanentDuty.DistanceEvidence = "SENTETİK";
+    permanentDuty.Kilometers = 100;
+    permanentDuty.FamilyCount = 1;
+    permanentDuty.Return = default;
+    var permanent = simulation.Preview(person, permanentDuty);
+    Check("Surekli gorev bitis tarihi gerektirmez", permanent.Amount is not null);
+    Check("Sabitler surekli motor sonucuna uygulanir", permanent.Amount == 32400m && permanent.Components?.Count == 3);
+    permanentDuty.Snapshot = permanent;
+    var otherTemporary = new TravelWorkflowService(tariffPath, constants with { Temporary = new() });
+    Check("Gecici sabit surekli sonucun surumunu etkilemez", otherTemporary.IsCurrent(person, permanentDuty));
     Console.WriteLine($"TOPLAM: {passed}/{passed} IS AKISI KONTROLU BASARILI");
     return 0;
 }

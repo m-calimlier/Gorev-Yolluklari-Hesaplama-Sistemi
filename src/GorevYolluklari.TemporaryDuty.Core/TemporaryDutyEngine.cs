@@ -4,7 +4,14 @@ namespace GorevYolluklari.Core.Integration;
 public sealed class TemporaryDutyEngine
 {
  private readonly DailyRateTariff2026 _tariff;
- public TemporaryDutyEngine(DailyRateTariff2026 tariff) => _tariff = tariff ?? throw new ArgumentNullException(nameof(tariff));
+    private readonly TemporaryConstants? _constants;
+
+    public TemporaryDutyEngine(DailyRateTariff2026 tariff, TemporaryConstants? constants = null)
+    {
+        _tariff = tariff ?? throw new ArgumentNullException(nameof(tariff));
+        _constants = constants;
+    }
+
     public IntegratedPreview PreviewSameDay(SameDayDutyRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -31,7 +38,7 @@ public sealed class TemporaryDutyEngine
 
         var result = SameDayPerDiemPreview.Calculate(
             request.Departure, request.Return, decision.DailyAmount!.Value,
-            request.Station, decision.SourceReference, request.StationEvidenceReference);
+            request.Station, decision.SourceReference, request.StationEvidenceReference, _constants);
         return FromDraft(result, decision);
     }
 
