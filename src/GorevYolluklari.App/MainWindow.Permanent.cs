@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using GorevYolluklari.Core.Documents;
 using GorevYolluklari.Core.Records;
+using GorevYolluklari.Core.Rules;
 
 namespace GorevYolluklari.App;
 
