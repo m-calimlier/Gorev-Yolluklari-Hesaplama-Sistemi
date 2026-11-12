@@ -54,7 +54,7 @@ public partial class MainWindow
         // StackPanel kendi içeriğini sonsuz genişlikte ölçtüğünden scrollbar daha önce
         // gerçek bir viewport alamıyordu. Dış viewport genişliğine sabitle.
         boardScroll.SetBinding(FrameworkElement.WidthProperty,
-            new Binding(nameof(FrameworkElement.ActualWidth)) { Source = PageScroll });
+            new Binding(nameof(ScrollViewer.ViewportWidth)) { Source = PageScroll });
         boardScroll.SizeChanged += (_, _) =>
             board.MinWidth = Math.Max(1140, boardScroll.ViewportWidth);
 
