@@ -27,7 +27,8 @@ public partial class MainWindow
 
     // Tek bir üç kartlı düzen, iki görev türünde de kullanılır.
     // Dış sayfa yalnız dikey; kartların kaydırması yalnız yataydır.
-    private (StackPanel Person, StackPanel Task, StackPanel Result) BuildThreeCardWorkspace(string taskTitle)
+    private (StackPanel Person, StackPanel Task, StackPanel Result) BuildThreeCardWorkspace(
+        string taskTitle, string personTitle = "1 · Kişi")
     {
         var board = new Grid { MinWidth = 1140 };
         board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -100,7 +101,7 @@ public partial class MainWindow
         Page.Children.Add(boardScroll);
         _entryBoardScroll = boardScroll;
         return (
-            Card("1 · Kişi", holders[0]),
+            Card(personTitle, holders[0]),
             Card(taskTitle, holders[1]),
             Card("3 · Sonuç", holders[2]));
     }
@@ -112,68 +113,126 @@ public partial class MainWindow
         _entryBoardScroll.ScrollToRightEnd();
     }
 
+    private static int IndicatorGroup(int value) =>
+        value >= 8000 ? 8000 : value >= 6400 ? 6400 : value >= 3600 ? 3600 : 0;
+
+    // Yalnız arayüz düzeni sade: hesap makinesi için kimlik/atama günü uydurulmaz.
+    // 2026 H-Cetveli genel memur/hizmetli ile hesaplanır.
+    private void SetPermanentCalculationDefaults(DutyRecord duty)
+    {
+        var person = _formPerson!;
+        if (string.IsNullOrWhiteSpace(person.FullName))
+            person.FullName = "AD SOYAD BELİRTİLMEDİ";
+        if (person.Group == PersonnelTariffGroup.Unknown)
+            person.Group = PersonnelTariffGroup.GeneralCivilServant;
+        if (duty.Departure == default)
+            duty.Departure = new DateTime(2026, 1, 1);
+        ApplyPermanentStationFromRoute(duty);
+    }
+
+    // Seçilen il/ilçe kombinasyonu bir ÖN HESAP varsayımıdır. Aynı il/ilçe
+    // dışındaki mahalliyet istisnalarını ve hak sahipliğini memur değerlendirir.
+    private static void ApplyPermanentStationFromRoute(DutyRecord duty)
+    {
+        duty.Station = string.IsNullOrWhiteSpace(duty.Origin) ||
+                       string.IsNullOrWhiteSpace(duty.Destination)
+            ? DutyStationAssessment.Unknown
+            : string.Equals(duty.Origin, duty.Destination, StringComparison.OrdinalIgnoreCase)
+                ? DutyStationAssessment.Inside : DutyStationAssessment.Outside;
+    }
+
     private void BuildPermanentBoard(DutyRecord duty)
     {
-        var (person, assignment, result) = BuildThreeCardWorkspace("2 · Atama ve Güzergâh");
-        person.Children.Add(Text("Personeli seçin veya bilgilerini girip kaydedin.", 12));
-        BuildEntryPersonnel(person);
-        Button(person, "Vazgeç", CancelEntry).HorizontalAlignment = HorizontalAlignment.Left;
+        SetPermanentCalculationDefaults(duty);
+        var person = _formPerson!;
+        var (tariff, route, result) = BuildThreeCardWorkspace(
+            "2 · Eski ve Yeni Görev Yeri", "1 · Tarife ve Aile");
 
-        var guarded = Dependent(assignment);
-        guarded.Children.Add(Text("Kayıt kodu otomatik oluşturulur.", 12));
-        var origin = new StackPanel();
-        var destination = new StackPanel();
-        guarded.Children.Add(origin);
-        guarded.Children.Add(destination);
-        AddRoute(origin, destination, duty);
-        DateField(guarded, "Atama / işlem tarihi", duty, nameof(duty.Departure), withTime: false);
-        Choice(guarded, "Memuriyet mahalli değerlendirmesi",
-            Enum.GetValues<GorevYolluklari.Core.Rules.DutyStationAssessment>(), duty, nameof(duty.Station));
-
-        guarded.Children.Add(Text("Aile ve mesafe", 16));
-        Field(guarded, "Hak sahibi aile ferdi sayısı (personel hariç)", duty, nameof(duty.FamilyCount));
-        Field(guarded, "Kaynaklı kilometre", duty, nameof(duty.Kilometers));
-        Button(guarded, "KGM mesafesini sorgula", () => _ = FillDistanceAsync(duty));
-        Choice(guarded, "Eşin aynı güzergâhta memur olarak nakli",
-            new Option[] { new(false, "Yok"), new(true, "Var · ayrı inceleme") }, duty, nameof(duty.SpouseTransfer));
-
-        Button(guarded, "Sonucu hesapla", PreviewPermanent);
-
-        _permanentResultHint = Text("Bilgileri girip Sonucu hesapla veya Kaydet ve PDF oluştur düğmesine basın.", 12);
-        _permanentResultHint.Style = (Style)FindResource("HakedisCardSubtitle");
-        _permanentResultHint.Margin = new(0);
-        var resultInformation = new Border
+        tariff.Children.Add(Text("2026 genel memur/hizmetli tarifesi. Yalnız hesap için gerekli değerleri seçin.", 12));
+        tariff.Children.Add(new Label
+        {
+            Content = "Bütçe Dönemi",
+            Style = (Style)FindResource("HakedisFieldLabel")
+        });
+        tariff.Children.Add(new Border
         {
             Style = (Style)FindResource("HakedisInfoCard"),
-            Child = _permanentResultHint
+            Child = new TextBlock
+            {
+                Text = "2026 (01 Ocak – 31 Aralık)",
+                Foreground = (Brush)FindResource("HakedisTextBrush"),
+                FontWeight = FontWeights.SemiBold
+            }
+        });
+
+        Choice(tariff, "Aylık Kadro Derecesi", Enumerable.Range(1, 15), person, nameof(person.Grade));
+
+        var indicatorOptions = new[]
+        {
+            new Option(8000, "8000 ve üzeri"),
+            new Option(6400, "6400 – 7999"),
+            new Option(3600, "3600 – 6399"),
+            new Option(0, "3600 altı")
         };
-        resultInformation.SetBinding(UIElement.VisibilityProperty,
-            new Binding(nameof(UIElement.Visibility)) { Source = _permanentResultHint });
-        result.Children.Add(resultInformation);
+        var indicator = new ComboBox
+        {
+            ItemsSource = indicatorOptions,
+            DisplayMemberPath = nameof(Option.Label),
+            SelectedValuePath = nameof(Option.Value),
+            Style = (Style)FindResource("HakedisFieldCombo")
+        };
+        System.Windows.Automation.AutomationProperties.SetName(indicator, "Ek Gösterge Grubu");
+        if (person.Indicator is int previousIndicator)
+            indicator.SelectedValue = IndicatorGroup(previousIndicator);
+        indicator.SelectionChanged += (_, _) =>
+        {
+            if (indicator.SelectedValue is not int group || person.Indicator == group) return;
+            person.Indicator = group;
+            Invalidate(person, nameof(person.Indicator));
+        };
+        tariff.Children.Add(new Label
+        {
+            Content = "Ek Gösterge Grubu",
+            Target = indicator,
+            Style = (Style)FindResource("HakedisFieldLabel")
+        });
+        tariff.Children.Add(indicator);
+        RegisterIssue(nameof(person.Indicator), indicator, tariff);
+        Choice(tariff, "Y.D.M. Değişken Unsuru", new[]
+        {
+            new Option(false, "Normal tayin / eş durumu (tam)"),
+            new Option(true, "Aynı güzergâhta atanan ikinci memur eş (%50)")
+        }, duty, nameof(duty.SpouseTransfer));
+        Field(tariff, "Aile Ferdi Sayısı (kendiniz hariç)", duty, nameof(duty.FamilyCount));
+
+        route.Children.Add(Text("Eski ve yeni görev yerini seçin. Aynı yer seçilirse yer değiştirme gideri hesaplanmaz.", 12));
+        var origin = new StackPanel();
+        var destination = new StackPanel();
+        route.Children.Add(origin);
+        route.Children.Add(destination);
+        AddRoute(origin, destination, duty);
+        Field(route, "Mesafe (km)", duty, nameof(duty.Kilometers));
+        Button(route, "K.G.M. mesafesini getir", () => _ = FillDistanceAsync(duty));
+        Field(route, "Taşıt Ücreti (1 kişi için TL, varsa)", duty, nameof(duty.TravelFarePerPerson));
+
+        result.Children.Add(new Border
+        {
+            Style = (Style)FindResource("HakedisInfoCard"),
+            Child = new TextBlock
+            {
+                Text = "9 hesap bilgisiyle yolluğu hesaplayın. Tutar ve PDF program tarafından oluşturulur.",
+                Foreground = (Brush)FindResource("HakedisTextBrush"),
+                TextWrapping = TextWrapping.Wrap
+            }
+        });
+        _permanentResultHint = Text("Bilgileri doldurup Hesapla düğmesine basın.", 12);
+        _permanentResultHint.Style = (Style)FindResource("HakedisCardSubtitle");
+        result.Children.Add(_permanentResultHint);
         _permanentCalculatedArea = new StackPanel();
         result.Children.Add(_permanentCalculatedArea);
         BuildPermanentResult(duty, (StackPanel)_permanentCalculatedArea);
-        var optional = new StackPanel { Margin = new(0, 10, 0, 0) };
-        var expander = new Expander
-        {
-            Header = "Varsa ek taşıt, aile gideri ve avans",
-            Content = optional,
-            IsExpanded = _permanentExpensesOpen,
-            Foreground = (Brush)FindResource("Gold")
-        };
-        expander.Expanded += (_, args) =>
-        {
-            if (ReferenceEquals(args.OriginalSource, expander)) _permanentExpensesOpen = true;
-        };
-        expander.Collapsed += (_, args) =>
-        {
-            if (ReferenceEquals(args.OriginalSource, expander)) _permanentExpensesOpen = false;
-        };
-        result.Children.Add(expander);
-        BuildDocumentFields(duty, optional);
-        Button(result, "Kaydet", SaveEntry);
+        Button(result, "Hesapla", PreviewPermanent);
         Button(result, "Kaydet ve PDF oluştur", SaveAndMakePdf);
-        RefreshEntryAvailability();
     }
 
     private void MoveToPermanentAssignment()
