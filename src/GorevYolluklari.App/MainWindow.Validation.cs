@@ -95,16 +95,9 @@ public partial class MainWindow
         {
             if (duty.FamilyCount < 0) yield return ("FamilyCount", "Aile ferdi sayısı negatif olamaz.");
             if (duty.Kilometers < 0) yield return ("Kilometers", "Mesafe negatif olamaz.");
-            if (string.IsNullOrWhiteSpace(duty.DistanceEvidence)) yield return ("DistanceEvidence", "KGM sorgusunu kullanın veya mesafe dayanağını girin.");
-            if (!duty.FamilyReviewed) yield return ("FamilyReviewed", "Aile hak sahipliğini inceleyin.");
             if (duty.SpouseTransfer) yield return ("SpouseTransfer", "Eşin aynı güzergâhta nakli ayrı inceleme gerektiriyor.");
         }
         if (duty.Station == DutyStationAssessment.Unknown) yield return ("Station", "Memuriyet mahalli değerlendirmesini seçin.");
-        if (string.IsNullOrWhiteSpace(duty.AssignmentEvidence)) yield return ("AssignmentEvidence", "Görev oluru veya atama kararı referansını girin.");
-        if (string.IsNullOrWhiteSpace(duty.StationEvidence)) yield return ("StationEvidence", "Memuriyet mahalli dayanağını girin.");
-        if (string.IsNullOrWhiteSpace(duty.Reviewer)) yield return ("Reviewer", "İnceleme kaydının referansını girin.");
-        if (!duty.AssignmentReviewed) yield return ("AssignmentReviewed", "Görev oluru incelemesini tamamlayın.");
-        if (!duty.StationReviewed) yield return ("StationReviewed", "Memuriyet mahalli incelemesini tamamlayın.");
         if (includeExpenses)
             foreach (var issue in ExpenseIssues(duty)) yield return issue;
     }
@@ -116,8 +109,6 @@ public partial class MainWindow
             var line = duty.Expenses[index];
             if (line.Amount <= 0 || line.Amount != decimal.Round(line.Amount, 2))
                 yield return (ExpenseKey(line, nameof(line.Amount)), $"{index + 1}. gider için pozitif, iki ondalık basamaklı tutar girin.");
-            if (string.IsNullOrWhiteSpace(line.Evidence))
-                yield return (ExpenseKey(line, nameof(line.Evidence)), "Giderin dayanağını girin.");
             if (string.IsNullOrWhiteSpace(line.Description))
                 yield return (ExpenseKey(line, nameof(line.Description)), "Gider açıklamasını girin.");
             if (string.IsNullOrWhiteSpace(line.LegalBasis))
