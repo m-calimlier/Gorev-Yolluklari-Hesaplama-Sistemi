@@ -386,6 +386,26 @@ public partial class MainWindow
         row.Description = permanent ? "Yer değiştirme gideri" : "Gündelik";
         row.LegalBasis = permanent ? "6245 m.45" : preview.LegalBasis;
         row.Evidence = duty.AssignmentEvidence; // Boş olabilir: belgeyi memur kontrol eder.
+
+        // Çok günlü görevde motorun hesapladığı konaklama üst sınırını PDF'ye
+        // ayrıca aktarmak gerekir; aksi halde gündelik+konaklama eksik görünür.
+        if (!permanent && preview.Components?.FirstOrDefault(x => x.Label == "Konaklama") is
+                { Amount: > 0m } lodging)
+        {
+            var accommodationId = "OTO-KN-" + duty.Id.ToString("N");
+            var accommodation = duty.Expenses.FirstOrDefault(x => x.LineId == accommodationId);
+            if (accommodation is null && duty.Expenses.Any(x => x.Kind == DraftLineKind.Accommodation)) return;
+            if (accommodation is null)
+            {
+                accommodation = new ExpenseEntry { LineId = accommodationId };
+                duty.Expenses.Add(accommodation);
+            }
+            accommodation.Kind = DraftLineKind.Accommodation;
+            accommodation.Description = "Konaklama (gündelik üst sınırı)";
+            accommodation.Amount = TransferAmount(lodging.Amount);
+            accommodation.Evidence = "";
+            accommodation.LegalBasis = "6245 m.33(d)";
+        }
     }
 
     private WorkspaceRecords CurrentWorkspace() => new()
