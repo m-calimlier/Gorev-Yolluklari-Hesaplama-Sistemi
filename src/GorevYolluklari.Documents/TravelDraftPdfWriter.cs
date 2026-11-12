@@ -153,9 +153,11 @@ public static class TravelDraftPdfWriter
         }
         var tax = decimal.Round(doc.GrossTry * YollukOdemeOzeti2026.DamgaVergisiOrani, 2, MidpointRounding.AwayFromZero);
         DrawFooter(g, width, height,
-            doc.IsCalculationOutput
-                ? "Girilen verilerden hesaplandı; hak sahipliği ve belgelerin incelemesi kurumca yapılır."
-                : "Görev oluru: " + doc.AssignmentEvidence + " | Mahallî değerlendirme: " + doc.StationEvidence,
+            doc.IsCalculationOutput && doc.Kind == DraftKind.PermanentDuty
+                ? "Ön hesap: 1 gün seyahat, kişi başına eşit taşıt bedeli varsayılmıştır. Hak sahipliği kurumca incelenir."
+                : doc.IsCalculationOutput
+                    ? "Girilen verilerden hesaplandı; hak sahipliği ve belgelerin incelemesi kurumca yapılır."
+                    : "Görev oluru: " + doc.AssignmentEvidence + " | Mahallî değerlendirme: " + doc.StationEvidence,
             pageNo == pageCount - 1
                 ? $"2026 damga vergisi (binde 7,59): {Currency(tax)} TL | Tahmini ödenecek: {Currency(doc.NetTry - tax)} TL"
                 : null, doc.IsCalculationOutput);
