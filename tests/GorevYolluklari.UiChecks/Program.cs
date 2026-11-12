@@ -164,10 +164,13 @@ internal static class Program
                 window.UpdateLayout();
                 var legalWindow = Application.Current.Windows.OfType<Window>()
                     .FirstOrDefault(x => x != window && x.Title.StartsWith("Mevzuat Dayanağı"));
-                Check("Ayri hukuki panel acilir ve ilgili bolum saridir",
+                Check("Ayri hukuki panelde kanundan sari birebir kisa alinti",
                     legalWindow is not null && Descendants<TextBlock>(legalWindow).Any(t =>
                         t.Background is SolidColorBrush b && b.Color.R > 220 && b.Color.G > 170 &&
-                        b.Color.B < 180));
+                        b.Color.B < 180 && t.Text.StartsWith("… ") && t.Text.EndsWith(" …")));
+                Check("Alinti ile aciklama ayri etiketlenir",
+                    legalWindow is not null && Descendants<TextBlock>(legalWindow).Any(t =>
+                        t.Text == "AÇIKLAMA (ALINTI DEĞİLDİR)"));
                 legalWindow?.Close();
             }
             Check("Veri girisinde kaydet ve PDF butonlari yok",
@@ -195,6 +198,14 @@ internal static class Program
             Check("Sonuc panelinde tek kaydet PDF aksiyonu var",
                 Descendants<Button>(page).Count(x => x.Content is string t && t.Contains("PDF")) == 1 &&
                 FindButton("Düzenle") is not null && FindButton("Sil") is not null);
+            Check("Kaydedilmemis hesap duzenlemeye geri donebilir", repository.Load().Duties.Count == 0);
+            Click(FindButton("Düzenle"));
+            Check("Duzenle tiklaninca alanlar korunur",
+                navigation.SelectedIndex == 1 && Box("Görev Süresi (gün)").Text == "3" &&
+                repository.Load().Duties.Count == 0);
+            Click(FindButton("Hesapla"));
+            Check("Giris duzeltme sonrasi sonuc tekrar acilir",
+                navigation.SelectedIndex == 2 && repository.Load().Duties.Count == 0);
             Capture("Gecici_Referans_Hesaplanmis", 1366, 768);
             Click(FindButton("Kaydet / PDF oluştur"));
             var temporary = repository.Load().Duties.Single();
