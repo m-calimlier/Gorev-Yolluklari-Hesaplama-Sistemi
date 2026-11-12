@@ -333,7 +333,8 @@ public partial class MainWindow : Window
 
     private void PreviewTemporary()
     {
-        if (!PersonIsReady) throw new InvalidOperationException("Önce kişi bilgilerini kaydedin.");
+        if (!PersonIsReady) SaveEntryPerson();
+        if (!PersonIsReady) throw new InvalidOperationException("Kişi bilgilerini tamamlayın.");
         var duty = Duty();
         CheckFormIssues(DutyIssues(duty, _formPerson!, includeExpenses: false));
         var preview = Service.PreviewForCalculation(_formPerson!, duty);
