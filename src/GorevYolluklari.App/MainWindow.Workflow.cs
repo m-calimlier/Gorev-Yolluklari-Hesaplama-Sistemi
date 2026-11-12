@@ -86,9 +86,9 @@ public partial class MainWindow
     private void RefreshEntryAvailability()
     {
         var ready = PersonIsReady;
-        foreach (var card in _dependentEntryCards) card.IsEnabled = _formPersonBaseline is not null;
+        foreach (var card in _dependentEntryCards) card.IsEnabled = true;
         if (_personStatus is not null)
-            _personStatus.Text = ready ? _formPerson!.FullName + " · Kayıt hazır" : "Devam etmek için kişiyi kaydedin.";
+            _personStatus.Text = ready ? _formPerson!.FullName + " · Hazır" : "Hesaplama/PDF sırasında kişi otomatik kaydedilir.";
     }
 
 
@@ -150,6 +150,7 @@ public partial class MainWindow
     private void StartEntry(DraftKind kind)
     {
         ResetPermanentStep();
+        _temporaryPreview = null;
         _selectedModule = kind;
         _formPerson = new PersonnelRecord();
         _formPersonBaseline = null;
@@ -171,6 +172,7 @@ public partial class MainWindow
         if ((_formChanged || _personChanged) && _dialog("Açık formdaki değişiklikler bırakılsın mı?", "Görev formu", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
             return;
         ResetPermanentStep();
+        _temporaryPreview = null;
         _selectedModule = duty.Kind;
         _form = Copy(duty);
         _formPerson = Copy(Person(duty));
@@ -270,6 +272,7 @@ public partial class MainWindow
     private void ClearEntry()
     {
         ResetPermanentStep();
+        _temporaryPreview = null;
         _form = null;
         _formPerson = null;
         _formPersonBaseline = null;
