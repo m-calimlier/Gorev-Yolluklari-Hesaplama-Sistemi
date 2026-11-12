@@ -126,14 +126,17 @@ public static class TravelDraftPdfWriter
         Text(g, $"Tarih: {doc.Begins:dd.MM.yyyy} - {doc.Ends:dd.MM.yyyy} | Yıl: {doc.BudgetYear}", normal, Left + 482, 145, 310);
         Text(g, $"Tarife: {doc.TariffReference} | Kural: {doc.RuleVersion}", normal, Left, 166, 730);
         var cols = new[] { Left, 90d, 225d, 445d, 630d, width - Right };
-        DrawTableHeader(g, cols, TableTop, new[] { "Satır", "Gider türü", "Açıklama", "Kanıt / Dayanak", "Tutar (TL)" });
+        DrawTableHeader(g, cols, TableTop, new[] { "Satır", "Gider türü", "Açıklama",
+            doc.IsCalculationOutput ? "Mevzuat" : "Kanıt / Dayanak", "Tutar (TL)" });
         var lines = doc.Lines.Skip(pageNo * LinesPerPage).Take(LinesPerPage).ToArray();
         for (int i = 0; i < lines.Length; i++)
         {
             var line = lines[i];
             DrawRow(g, cols, TableTop + 24d + RowHeight * i,
                 new[] { line.LineId, KindText(line.Kind), line.Description,
-                    line.EvidenceReference + " / " + line.LegalReference, Currency(line.AmountTry) }, normal);
+                    doc.IsCalculationOutput ? line.LegalReference :
+                        line.EvidenceReference + " / " + line.LegalReference,
+                    Currency(line.AmountTry) }, normal);
         }
         if (pageNo == pageCount - 1)
         {
