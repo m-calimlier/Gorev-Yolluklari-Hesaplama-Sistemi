@@ -89,7 +89,6 @@ public partial class MainWindow
         card.Children.Add(new Expander { Header = "Avans Varsa Girin", Content = advance,
             IsExpanded = duty.Advance != 0m, Margin = new(0, 8, 0, 8) });
         Field(advance, "Avans TL", duty, nameof(duty.Advance));
-        Field(advance, "Avans kanıtı", duty, nameof(duty.AdvanceEvidence));
 
         UpdateExpenseSummary(duty);
     }
@@ -208,15 +207,6 @@ public partial class MainWindow
         var kind = calculated ? null : Choice(left, "Gider türü", kinds.Select(k => new Option(k, ExpenseLabel(k))).ToArray(),
             entry, nameof(entry.Kind));
         var amount = Field(right, "Gider tutarı (TL)", entry, nameof(entry.Amount));
-        var supporting = new StackPanel();
-        body.Children.Add(new Expander
-        {
-            Header = "Belge dayanağı (isteğe bağlı)",
-            Content = supporting,
-            IsExpanded = !string.IsNullOrWhiteSpace(entry.Evidence),
-            Margin = new(0, 6, 0, 6)
-        });
-        Field(supporting, "Gider dayanağı", entry, nameof(entry.Evidence));
         if (calculated)
         {
             amount.IsReadOnly = true;
