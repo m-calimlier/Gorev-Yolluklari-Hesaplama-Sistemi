@@ -84,6 +84,9 @@ public partial class MainWindow
         }
         else
         {
+            if (!string.IsNullOrWhiteSpace(duty.Origin) &&
+                string.Equals(duty.Origin, duty.Destination, StringComparison.OrdinalIgnoreCase))
+                yield return ("Destination", "Eski ve yeni görev yeri aynı. Yer değiştirme gideri için farklı görev mahalli gerekir.");
             if (duty.FamilyCount < 0) yield return ("FamilyCount", "Aile ferdi sayısı negatif olamaz.");
             if (duty.Kilometers < 0) yield return ("Kilometers", "Mesafe negatif olamaz.");
             if (duty.TravelFarePerPerson is decimal fare &&
