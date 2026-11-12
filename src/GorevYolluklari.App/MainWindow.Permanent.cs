@@ -74,18 +74,10 @@ public partial class MainWindow
         guarded.Children.Add(Text("Aile ve mesafe", 16));
         Field(guarded, "Hak sahibi aile ferdi sayısı (personel hariç)", duty, nameof(duty.FamilyCount));
         Field(guarded, "Kaynaklı kilometre", duty, nameof(duty.Kilometers));
-        Field(guarded, "KGM / mesafe kanıtı", duty, nameof(duty.DistanceEvidence));
         Button(guarded, "KGM mesafesini sorgula", () => _ = FillDistanceAsync(duty));
-        Check(guarded, "Aile hak sahipliği incelendi", duty, nameof(duty.FamilyReviewed));
         Choice(guarded, "Eşin aynı güzergâhta memur olarak nakli",
             new Option[] { new(false, "Yok"), new(true, "Var · ayrı inceleme") }, duty, nameof(duty.SpouseTransfer));
 
-        guarded.Children.Add(Text("Dayanak ve değerlendirme", 16));
-        Field(guarded, "Görev oluru / atama kararı referansı", duty, nameof(duty.AssignmentEvidence));
-        Field(guarded, "Memuriyet mahalli kanıtı", duty, nameof(duty.StationEvidence));
-        Field(guarded, "İnceleyen beyanı / kayıt referansı", duty, nameof(duty.Reviewer));
-        Check(guarded, "Görev oluru incelendi", duty, nameof(duty.AssignmentReviewed));
-        Check(guarded, "Mahalliyet incelendi", duty, nameof(duty.StationReviewed));
         Button(guarded, "Sonucu hesapla", PreviewPermanent);
 
         var result = Card("3 · Sonuç", resultHolder);
@@ -127,7 +119,7 @@ public partial class MainWindow
         if (!PersonIsReady) throw new InvalidOperationException("Önce kişiyi kaydedin.");
         var duty = Duty();
         CheckFormIssues(DutyIssues(duty, _formPerson!, includeExpenses: false));
-        var preview = Service.Preview(_formPerson!, duty);
+        var preview = Service.PreviewForCalculation(_formPerson!, duty);
         if (preview.Amount is null)
             CheckFormIssues([("Departure", preview.Explanation)]);
         _permanentPreview = preview;
@@ -147,13 +139,12 @@ public partial class MainWindow
         result.Children.Add(Text("Gündelik " + Money(preview.DailyRate)));
         foreach (var component in preview.Components ?? [])
             result.Children.Add(Text($"{component.Label} · {Money(component.Amount)}"));
-        if (preview.Amount is > 0)
-            Button(result, "Yer değiştirmeyi giderlere aktar", () => TransferRelocation(duty, preview));
+        result.Children.Add(Text("Kaydettiğinizde yer değiştirme tutarı otomatik giderlere eklenir; ayrıca aktarım yapmanız gerekmez.", 12));
 
         var optional = new StackPanel { Margin = new(0, 10, 0, 0) };
         var expander = new Expander
         {
-            Header = "Taşıt, Avans Ve PDF",
+            Header = "İsteğe bağlı taşıt ve avans",
             Content = optional,
             IsExpanded = _permanentExpensesOpen,
             Foreground = (Brush)FindResource("Gold")
