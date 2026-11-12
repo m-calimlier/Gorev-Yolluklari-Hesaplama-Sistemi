@@ -89,6 +89,9 @@ try
     Check("Bagimsiz toplam uyusmazligi blok", !service.PrepareDraft(person, duty).MayPrintDraft);
     duty.IndependentNet = 850m; person.Grade = 1;
     Check("Personel degisince taslak blok", !service.PrepareDraft(person, duty).MayPrintDraft);
+    // Bir önceki test dereceyi 1'e değiştirdi. 850 TL gündelik bekleyen yeni
+    // senaryo, 2026 H-Cetveli B-e (5. derece) ile başlamalı.
+    person.Grade = 5;
     // Yeni hesaplama PDF yolunda inceleme yapıldı beyanı, bağımsız brüt ve
     // bağımsız net toplamları gerekmez; yanlış hesap satırları yine bloke olur.
     duty = DutyRecord.CreateDemo(person.Id);
