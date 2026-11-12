@@ -108,13 +108,31 @@ public partial class MainWindow
 
         Button(guarded, "Sonucu hesapla", PreviewPermanent);
 
-        _permanentResultHint = Text(PersonIsReady
-            ? "Atama ve güzergâh bilgilerini tamamlayıp Sonucu hesapla düğmesine basın."
-            : "Önce sol karttaki kişiyi kaydedin; ardından atama bilgilerini doldurun.", 12);
+        _permanentResultHint = Text("Bilgileri girip Sonucu hesapla veya Kaydet ve PDF oluştur düğmesine basın.", 12);
         result.Children.Add(_permanentResultHint);
         _permanentCalculatedArea = new StackPanel();
         result.Children.Add(_permanentCalculatedArea);
         BuildPermanentResult(duty, (StackPanel)_permanentCalculatedArea);
+        var optional = new StackPanel { Margin = new(0, 10, 0, 0) };
+        var expander = new Expander
+        {
+            Header = "Varsa ek taşıt, aile gideri ve avans",
+            Content = optional,
+            IsExpanded = _permanentExpensesOpen,
+            Foreground = (Brush)FindResource("Gold")
+        };
+        expander.Expanded += (_, args) =>
+        {
+            if (ReferenceEquals(args.OriginalSource, expander)) _permanentExpensesOpen = true;
+        };
+        expander.Collapsed += (_, args) =>
+        {
+            if (ReferenceEquals(args.OriginalSource, expander)) _permanentExpensesOpen = false;
+        };
+        result.Children.Add(expander);
+        BuildDocumentFields(duty, optional);
+        Button(result, "Kaydet", SaveEntry);
+        Button(result, "Kaydet ve PDF oluştur", SaveAndMakePdf);
         RefreshEntryAvailability();
     }
 
@@ -170,27 +188,7 @@ public partial class MainWindow
             result.Children.Add(Text($"{component.Label} · {Money(component.Amount)}"));
         result.Children.Add(Text("Kaydettiğinizde yer değiştirme tutarı otomatik giderlere eklenir; ayrıca aktarım yapmanız gerekmez.", 12));
 
-        var optional = new StackPanel { Margin = new(0, 10, 0, 0) };
-        var expander = new Expander
-        {
-            Header = "İsteğe bağlı taşıt ve avans",
-            Content = optional,
-            IsExpanded = _permanentExpensesOpen,
-            Foreground = (Brush)FindResource("Gold")
-        };
-        expander.Expanded += (_, args) =>
-        {
-            if (ReferenceEquals(args.OriginalSource, expander)) _permanentExpensesOpen = true;
-        };
-        expander.Collapsed += (_, args) =>
-        {
-            if (ReferenceEquals(args.OriginalSource, expander)) _permanentExpensesOpen = false;
-        };
-        result.Children.Add(expander);
-        BuildDocumentFields(duty, optional);
 
-        Button(result, "Kaydet", SaveEntry);
-        Button(result, "Kaydet ve PDF oluştur", SaveAndMakePdf);
     }
 
     private static string RelocationLineId(DutyRecord duty) => "OTO-YD-" + duty.Id.ToString("N");
