@@ -119,6 +119,37 @@
    <Setter Property="CornerRadius" Value="9"/>
    <Setter Property="Padding" Value="10,8"/>
  </Style>
+ <!-- Ek Ders'in ModernDataGrid/hybrid-editor desenine uyarlama. -->
+ <Style x:Key="HakedisDataGridRow" TargetType="DataGridRow">
+   <Setter Property="Background" Value="#09283F"/>
+   <Setter Property="Foreground" Value="#F0F6FC"/>
+   <Style.Triggers>
+     <Trigger Property="AlternationIndex" Value="1">
+       <Setter Property="Background" Value="#14374F"/>
+     </Trigger>
+     <Trigger Property="IsMouseOver" Value="True">
+       <Setter Property="Background" Value="#27536C"/>
+     </Trigger>
+     <Trigger Property="IsSelected" Value="True">
+       <Setter Property="Background" Value="#285778"/>
+       <Setter Property="Foreground" Value="#FFFFFF"/>
+     </Trigger>
+   </Style.Triggers>
+ </Style>
+ <Style x:Key="HakedisDataGrid" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
+   <Setter Property="Background" Value="#09283F"/>
+   <Setter Property="Foreground" Value="#F0F6FC"/>
+   <Setter Property="RowBackground" Value="#09283F"/>
+   <Setter Property="AlternatingRowBackground" Value="#14374F"/>
+   <Setter Property="BorderBrush" Value="#466780"/>
+   <Setter Property="BorderThickness" Value="1"/>
+   <Setter Property="HorizontalGridLinesBrush" Value="#35566F"/>
+   <Setter Property="VerticalGridLinesBrush" Value="#35566F"/>
+   <Setter Property="RowStyle" Value="{StaticResource HakedisDataGridRow}"/>
+   <Setter Property="AlternationCount" Value="2"/>
+   <Setter Property="ColumnHeaderHeight" Value="38"/>
+   <Setter Property="RowHeight" Value="34"/>
+ </Style>
  <!-- Ek Ders'in çalışır koyu tarih ve takvim şablonu; isimler çakışmaması için ayrıldı. -->
  <Style x:Key="HakedisCalendarDay" TargetType="CalendarDayButton">
             <Setter Property="Foreground" Value="#F0F6FC"/><Setter Property="Background" Value="Transparent"/>
