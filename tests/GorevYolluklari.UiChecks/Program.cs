@@ -9,6 +9,7 @@ using GorevYolluklari.Core.Tariffs;
 using GorevYolluklari.Storage.Records;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -109,82 +110,87 @@ internal static class Program
                     .All(x => x.ActualHeight >= 42 && x.ActualWidth >= 120));
             SelectTab(0);
             Check("Gecici gorev ekrani acildi", Tabs().SelectedIndex == 1);
-            Check("Ek Ders tasarimi giris kaynaklari yuklendi",
+            Check("Ek Ders tasarimi tum temel kaynaklari yuklendi",
                 window.TryFindResource("HakedisWorkspaceCard") is Style &&
                 window.TryFindResource("HakedisFieldText") is Style &&
                 window.TryFindResource("HakedisFieldCombo") is Style &&
                 window.TryFindResource("HakedisDatePicker") is Style &&
-                window.TryFindResource("HakedisMetricCard") is Style);
-            Check("Ek Ders kart stili uygulandi",
+                window.TryFindResource("HakedisMetricCard") is Style &&
+                window.TryFindResource("HakedisPrimaryAction") is Style &&
+                window.TryFindResource("HakedisSecondaryAction") is Style);
+            Check("Ek Ders giris karti ve buton stili etkin",
                 Descendants<Border>(page).Any(x =>
-                    ReferenceEquals(x.Style, window.FindResource("HakedisWorkspaceCard"))));
+                    ReferenceEquals(x.Style, window.FindResource("HakedisWorkspaceCard"))) &&
+                ReferenceEquals(FindButton("Hesapla").Style, window.FindResource("HakedisPrimaryAction")));
 
             window.Width = 1700; window.Height = 900; window.UpdateLayout();
-            var tempTitles = new[] { "1 · Kişi", "2 · Görev Ve Güzergâh", "3 · Sonuç" }
+            var tempTitles = new[] { "1 · Bütçe Ve Tarife", "2 · Gidiş Ve Dönüş", "3 · Sonuç" }
                 .Select(title => Descendants<TextBlock>(page).Single(x => x.Text == title))
                 .Select(x => x.TranslatePoint(new Point(), page)).ToArray();
-            Check("Gecici gorev uc karti da ayni satirda",
+            Check("Referans gecici gorev uc kart ayni satirda",
                 tempTitles[0].X + 150 < tempTitles[1].X &&
                 tempTitles[1].X + 150 < tempTitles[2].X &&
                 Math.Abs(tempTitles[0].Y - tempTitles[1].Y) < 30 &&
                 Math.Abs(tempTitles[1].Y - tempTitles[2].Y) < 30);
-            Capture("Gecici_Uc_Kart_Sade", 1700, 900);
+            Capture("Gecici_Referans_2026", 1700, 900);
             window.Width = 1366; window.Height = 768; window.UpdateLayout();
-            Check("Yeniden brüt net girisi yok", !Descendants<TextBox>(page).Any(x =>
-                AutomationProperties.GetName(x).StartsWith("Bağımsız")));
-            Check("Belge kontrolu kutulari zorunlu ekranin disinda", !Descendants<CheckBox>(page).Any(x =>
-                AutomationProperties.GetName(x) == "Görev oluru incelendi" ||
-                AutomationProperties.GetName(x) == "Mahalliyet incelendi"));
-            Check("Belge numarasi otomatik", !Descendants<TextBox>(page).Any(x =>
-                AutomationProperties.GetName(x) == "Belge numarası"));
-
-            Click(FindButton("Kaydet ve PDF oluştur"));
-            Check("Eksik personel kaydedilmez", repository.Load().Duties.Count == 0);
-            Check("Ek Ders TextBox girisi kullaniliyor",
-                ReferenceEquals(Box("Ad soyad").Style, window.FindResource("HakedisFieldText")) &&
-                ReferenceEquals(ChoiceBox("Çıkış ili").Style, window.FindResource("HakedisFieldCombo")));
-            Set("Ad soyad", "SENTETİK PERSONEL");
-            Pick("Statü", PersonnelTariffGroup.GeneralCivilServant);
-            Pick("Derece", 5);
-            Set("Ek gösterge", "0");
-            Check("Kisi ayrica kaydedilmeden gorev girilebilir",
-                repository.Load().Personnel.Count == 0 && ChoiceBox("Çıkış ili").IsEnabled);
-
-            SelectPlace("Çıkış", "ADANA", "ALADAĞ");
-            SelectPlace("Varış", "ADANA", "CEYHAN");
-            void PickDate(string name, int hour)
+            Check("Gecici kisa ekranda belge/atama/guzergah kontrolu yok",
+                !Descendants<DatePicker>(page).Any() &&
+                !Descendants<CheckBox>(page).Any() &&
+                !Descendants<TextBox>(page).Any(x =>
+                    AutomationProperties.GetName(x) is "Ad soyad" or "KGM / mesafe kanıtı" or
+                        "Bağımsız Brüt TL" or "Bağımsız Net TL"));
+            Check("Ek Ders textbox ve combobox stili uygulandi",
+                ReferenceEquals(Box("Gidiş Ulaşım Ücretleri Toplamı (TL)").Style,
+                    window.FindResource("HakedisFieldText")) &&
+                ReferenceEquals(ChoiceBox("Gidiş Gündelik Oranı").Style,
+                    window.FindResource("HakedisFieldCombo")));
+            var citation = Descendants<Label>(page)
+                .Select(x => x.Content).OfType<TextBlock>()
+                .SelectMany(x => x.Inlines.OfType<Hyperlink>()).FirstOrDefault();
+            Check("Alanlarda tiklanabilir kanun madde dayanaklari", citation is not null);
+            if (citation is not null)
             {
-                Descendants<DatePicker>(page).Single(x => AutomationProperties.GetName(x) == name)
-                    .SelectedDate = new DateTime(2026, 6, 15);
-                ChoiceBox(name + " saati").SelectedIndex = hour;
-                ChoiceBox(name + " dakikası").SelectedIndex = 0;
+                citation.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
+                window.UpdateLayout();
+                var legalWindow = Application.Current.Windows.OfType<Window>()
+                    .FirstOrDefault(x => x != window && x.Title.StartsWith("Mevzuat Dayanağı"));
+                Check("Ayri hukuki panel acilir ve ilgili bolum saridir",
+                    legalWindow is not null && Descendants<TextBlock>(legalWindow).Any(t =>
+                        t.Background is SolidColorBrush b && b.Color.R > 220 && b.Color.G > 170 &&
+                        b.Color.B < 180));
+                legalWindow?.Close();
             }
-            PickDate("Ayrılış tarihi", 9);
-            PickDate("Dönüş tarihi", 20);
-            var actualDate = Descendants<DatePicker>(page).Single(x =>
-                AutomationProperties.GetName(x) == "Ayrılış tarihi");
-            actualDate.ApplyTemplate();
-            actualDate.UpdateLayout();
-            var dateBox = actualDate.Template.FindName("PART_TextBox", actualDate) as System.Windows.Controls.Primitives.DatePickerTextBox;
-            if (dateBox is not null) dateBox.ApplyTemplate();
-            var dateHint = dateBox?.Template.FindName("DateHint", dateBox) as TextBlock;
-            Check("Ek Ders koyu takvim stili uygulanmis",
-                ReferenceEquals(actualDate.Style, window.FindResource("HakedisDatePicker")) &&
-                dateBox is not null);
-            Check("Dolu tarihte yer tutucu ust uste binmez",
-                dateHint is not null && dateHint.Visibility == Visibility.Collapsed);
-            Pick("Memuriyet mahalli değerlendirmesi", DutyStationAssessment.Outside);
-            Check("Gecici gorevde ek inceleme zorunlulugu yok", !Descendants<TextBox>(page)
-                .Any(x => AutomationProperties.GetName(x) == "İnceleyen beyanı / kayıt referansı"));
-            window.Width = 1366; window.Height = 768; window.UpdateLayout();
-            Capture("Gecici_Yolluk_Sade", 1366, 768);
+            Click(FindButton("Kaydet ve PDF oluştur"));
+            Check("Eksik tarife girdisi kaydedilmez", repository.Load().Duties.Count == 0);
+
+            Pick("Aylık Kadro Derecesi", 5);
+            Pick("Ek Gösterge Grubu", 0);
+            Set("Gidiş Ulaşım Ücretleri Toplamı (TL)", "120");
+            Pick("Gidiş Gündelik Oranı", 2);
+            Set("Gidiş Yol Gündelik Süresi (gün)", "1");
+            Set("Dönüş Ulaşım Ücretleri Toplamı (TL)", "100");
+            Pick("Dönüş Gündelik Oranı", 1);
+            Set("Dönüş Yol Gündelik Süresi (gün)", "1");
+            Set("Görev Süresi (gün)", "3");
+            Set("Konaklama Süresi (gece)", "2");
+            Set("Günlük Konaklama Ücreti (TL)", "900");
+            Set("Diğer Masraflar Toplamı (TL)", "50");
+            Click(FindButton("Hesapla"));
+            Check("Gecici 2026 kisa hesap toplam 5470 TL", Descendants<TextBlock>(page)
+                .Any(x => x.Text == "5.470,00 TL"));
+            Capture("Gecici_Referans_Hesaplanmis", 1366, 768);
             Click(FindButton("Kaydet ve PDF oluştur"));
             var temporary = repository.Load().Duties.Single();
-            Check("Kisi PDF sirasinda otomatik kaydedildi", repository.Load().Personnel.Count == 1);
-            Check("Gecici gorev otomatik gundelik satiri", temporary.Kind == DraftKind.TemporaryDuty &&
-                temporary.Expenses.Count == 1 && temporary.Expenses[0].Kind == DraftLineKind.DailyAllowance &&
-                temporary.Expenses[0].Amount == 566.67m);
-            Check("Gecici PDF olusturuldu", Directory.GetFiles(PortablePaths.Outputs, "*.pdf").Length == 1 &&
+            Check("Kisi tekrar girilmeden otomatik kaydedildi", repository.Load().Personnel.Count == 1);
+            Check("Gecici kisa hesap bes otomatik gider satiri",
+                temporary.QuickTemporaryEnabled && temporary.Expenses.Count == 5 &&
+                temporary.Expenses.Single(x => x.Kind == DraftLineKind.DailyAllowance).Amount == 3400m &&
+                temporary.Expenses.Single(x => x.Kind == DraftLineKind.Accommodation).Amount == 1800m &&
+                temporary.Expenses.Single(x => x.Kind == DraftLineKind.OtherEligible).Amount == 50m &&
+                temporary.Expenses.Where(x => x.Kind == DraftLineKind.TicketOrTravel).Sum(x => x.Amount) == 220m);
+            Check("Gecici hesap PDF olusturuldu",
+                Directory.GetFiles(PortablePaths.Outputs, "*.pdf").Length == 1 &&
                 openedFolder == PortablePaths.Outputs && FindButton("PDF").IsEnabled);
 
             Go(1);
