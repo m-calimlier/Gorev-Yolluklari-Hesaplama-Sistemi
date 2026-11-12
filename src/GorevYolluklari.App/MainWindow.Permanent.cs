@@ -8,63 +8,114 @@ namespace GorevYolluklari.App;
 
 public partial class MainWindow
 {
-    private enum PermanentStep { Person, Assignment, Result }
-    private PermanentStep _permanentStep;
     private CalculationSnapshot? _permanentPreview;
     private bool _permanentExpensesOpen;
+    private FrameworkElement? _permanentCalculatedArea;
+    private TextBlock? _permanentResultHint;
 
     private void ResetPermanentStep()
     {
-        _permanentStep = PermanentStep.Person;
         _permanentPreview = null;
         _permanentExpensesOpen = false;
+        _permanentCalculatedArea = null;
+        _permanentResultHint = null;
     }
 
-    private void ShowPermanentProgress()
+    // Üç kart aynı sayfada kalır. Sayfa daraldığında kartlar sıkışmak yerine
+    // içeride yatay kaydırılır; uygulamanın lacivert-altın teması aynen kullanılır.
+    private void BuildPermanentBoard(DutyRecord duty)
     {
-        var labels = new[] { "1 · Kişi", "2 · Atama Ve Güzergâh", "3 · Sonuç" };
-        var steps = new WrapPanel { Margin = new(0, 0, 0, 14) };
-        for (var index = 0; index < labels.Length; index++)
+        var board = new Grid { MinWidth = 1050 };
+        board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+        board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+        board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var personHolder = new Grid();
+        var assignmentHolder = new Grid();
+        var resultHolder = new Grid();
+        Grid.SetColumn(personHolder, 0);
+        Grid.SetColumn(assignmentHolder, 2);
+        Grid.SetColumn(resultHolder, 4);
+        board.Children.Add(personHolder);
+        board.Children.Add(assignmentHolder);
+        board.Children.Add(resultHolder);
+        Page.Children.Add(new ScrollViewer
         {
-            var active = index == (int)_permanentStep;
-            steps.Children.Add(new Border
-            {
-                Background = (Brush)FindResource(active ? "Gold" : "Card"),
-                Padding = new(12, 8, 12, 8),
-                CornerRadius = new(7),
-                Margin = new(0, 0, 8, 4),
-                Child = new TextBlock { Text = labels[index], FontWeight = FontWeights.SemiBold,
-                    Foreground = active ? (Brush)FindResource("Navy") : Brushes.LightSteelBlue }
-            });
-        }
-        Page.Children.Add(steps);
-    }
+            Content = board,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            CanContentScroll = false
+        });
 
-    private void BuildPermanentPerson()
-    {
-        var card = Card("Kişi");
-        card.Children.Add(Text("Mevcut kişiyi seçin veya yeni kişinin bilgilerini girin. Kaydedince atama adımı açılır.", 12));
-        BuildEntryPersonnel(card);
-        Button(Page, "Vazgeç", CancelEntry).HorizontalAlignment = HorizontalAlignment.Left;
+        var person = Card("1 · Kişi", personHolder);
+        person.Children.Add(Text("Personeli seçin veya bilgilerini girip kaydedin.", 12));
+        BuildEntryPersonnel(person);
+        Button(person, "Vazgeç", CancelEntry).HorizontalAlignment = HorizontalAlignment.Left;
+
+        var assignment = Card("2 · Atama ve Güzergâh", assignmentHolder);
+        var guarded = Dependent(assignment);
+        Field(guarded, "Belge numarası", duty, nameof(duty.DocumentNumber));
+        _taskStart = _editors.Last();
+        var origin = new StackPanel();
+        var destination = new StackPanel();
+        guarded.Children.Add(origin);
+        guarded.Children.Add(destination);
+        AddRoute(origin, destination, duty);
+        DateField(guarded, "Atama / işlem tarihi", duty, nameof(duty.Departure), withTime: false);
+        Choice(guarded, "Memuriyet mahalli değerlendirmesi",
+            Enum.GetValues<DutyStationAssessment>(), duty, nameof(duty.Station));
+
+        guarded.Children.Add(Text("Aile ve mesafe", 16));
+        Field(guarded, "Hak sahibi aile ferdi sayısı (personel hariç)", duty, nameof(duty.FamilyCount));
+        Field(guarded, "Kaynaklı kilometre", duty, nameof(duty.Kilometers));
+        Field(guarded, "KGM / mesafe kanıtı", duty, nameof(duty.DistanceEvidence));
+        Button(guarded, "KGM mesafesini sorgula", () => _ = FillDistanceAsync(duty));
+        Check(guarded, "Aile hak sahipliği incelendi", duty, nameof(duty.FamilyReviewed));
+        Choice(guarded, "Eşin aynı güzergâhta memur olarak nakli",
+            new Option[] { new(false, "Yok"), new(true, "Var · ayrı inceleme") }, duty, nameof(duty.SpouseTransfer));
+
+        guarded.Children.Add(Text("Dayanak ve değerlendirme", 16));
+        Field(guarded, "Görev oluru / atama kararı referansı", duty, nameof(duty.AssignmentEvidence));
+        Field(guarded, "Memuriyet mahalli kanıtı", duty, nameof(duty.StationEvidence));
+        Field(guarded, "İnceleyen beyanı / kayıt referansı", duty, nameof(duty.Reviewer));
+        Check(guarded, "Görev oluru incelendi", duty, nameof(duty.AssignmentReviewed));
+        Check(guarded, "Mahalliyet incelendi", duty, nameof(duty.StationReviewed));
+        Button(guarded, "Sonucu hesapla", PreviewPermanent);
+
+        var result = Card("3 · Sonuç", resultHolder);
+        _permanentResultHint = Text(PersonIsReady
+            ? "Atama ve güzergâh bilgilerini tamamlayıp Sonucu hesapla düğmesine basın."
+            : "Önce sol karttaki kişiyi kaydedin; ardından atama bilgilerini doldurun.", 12);
+        result.Children.Add(_permanentResultHint);
+        _permanentCalculatedArea = new StackPanel();
+        result.Children.Add(_permanentCalculatedArea);
+        BuildPermanentResult(duty, (StackPanel)_permanentCalculatedArea);
         RefreshEntryAvailability();
     }
 
     private void MoveToPermanentAssignment()
     {
         if (!PersonIsReady) throw new InvalidOperationException("Önce kişiyi kaydedin.");
-        _permanentStep = PermanentStep.Assignment;
         _permanentPreview = null;
         ShowPage();
-        Status.Text = "Atama ve güzergâh bilgilerini girin.";
+        Status.Text = "Kişi kaydedildi. Ortadaki Atama ve Güzergâh kartından devam edin.";
+        _taskStart?.Focus();
     }
 
-    private void BuildPermanentAssignmentActions()
+    // Sonuç yeniden hesaplanmadan eski rakamların ekranda kalmasını engeller.
+    private void InvalidatePermanentResult()
     {
-        var actions = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
-        Page.Children.Add(actions);
-        Button(actions, "Kişiye dön", () => { _permanentStep = PermanentStep.Person; ShowPage(); });
-        Button(actions, "Vazgeç", CancelEntry);
-        Button(actions, "Sonucu hesapla", PreviewPermanent);
+        if (_form?.Kind != DraftKind.PermanentDuty || _permanentPreview is null) return;
+        _permanentPreview = null;
+        if (_permanentCalculatedArea is not null)
+            _permanentCalculatedArea.Visibility = Visibility.Collapsed;
+        if (_permanentResultHint is not null)
+        {
+            _permanentResultHint.Text = "Bilgiler değişti. Güncel tutarlar için yeniden Sonucu hesapla düğmesine basın.";
+            _permanentResultHint.Visibility = Visibility.Visible;
+        }
     }
 
     private void PreviewPermanent()
@@ -76,16 +127,18 @@ public partial class MainWindow
         if (preview.Amount is null)
             CheckFormIssues([("Departure", preview.Explanation)]);
         _permanentPreview = preview;
-        _permanentStep = PermanentStep.Result;
         ShowPage();
-        Status.Text = "Yer değiştirme ön hesabı hazır. Sonucu kaydedebilir veya giderlere geçebilirsiniz.";
+        Status.Text = "Yer değiştirme hesabı hazır. Sağdaki Sonuç kartından giderleri tamamlayıp kaydedin.";
     }
 
-    private void BuildPermanentResult(DutyRecord duty)
+    private void BuildPermanentResult(DutyRecord duty, StackPanel result)
     {
-        var preview = _permanentPreview ?? throw new InvalidOperationException("Önce sonucu hesaplayın.");
-        var row = EntryRow();
-        var result = Card("Yer değiştirme ön hesabı", row.Left);
+        if (_permanentPreview is not { } preview)
+        {
+            _permanentCalculatedArea!.Visibility = Visibility.Collapsed;
+            return;
+        }
+        _permanentResultHint!.Visibility = Visibility.Collapsed;
         result.Children.Add(Metric("Yer değiştirme", Money(preview.Amount)));
         result.Children.Add(Text("Gündelik " + Money(preview.DailyRate)));
         foreach (var component in preview.Components ?? [])
@@ -93,16 +146,14 @@ public partial class MainWindow
         if (preview.Amount is > 0)
             Button(result, "Yer değiştirmeyi giderlere aktar", () => TransferRelocation(duty, preview));
 
-        var assignment = Card("Kişi ve güzergâh", row.Right);
-        assignment.Children.Add(Text(_formPerson!.FullName));
-        assignment.Children.Add(Text($"{duty.Origin} → {duty.Destination}"));
-        assignment.Children.Add(Text($"{duty.Departure:dd.MM.yyyy} · {duty.Kilometers.ToString(Tr)} km · {duty.FamilyCount} aile ferdi"));
-        assignment.Children.Add(Text("Taşıt gideri, avans veya PDF gerekiyorsa alttaki bölümü açın.", 12));
-
         var optional = new StackPanel { Margin = new(0, 10, 0, 0) };
-        var panel = Card("İsteğe bağlı gider ve belge işlemleri");
-        var expander = new Expander { Header = "Taşıt, Avans Ve PDF", Content = optional, IsExpanded = _permanentExpensesOpen,
-            Foreground = (Brush)FindResource("Gold") };
+        var expander = new Expander
+        {
+            Header = "Taşıt, Avans Ve PDF",
+            Content = optional,
+            IsExpanded = _permanentExpensesOpen,
+            Foreground = (Brush)FindResource("Gold")
+        };
         expander.Expanded += (_, args) =>
         {
             if (ReferenceEquals(args.OriginalSource, expander)) _permanentExpensesOpen = true;
@@ -111,14 +162,10 @@ public partial class MainWindow
         {
             if (ReferenceEquals(args.OriginalSource, expander)) _permanentExpensesOpen = false;
         };
-        panel.Children.Add(expander);
+        result.Children.Add(expander);
         BuildDocumentFields(duty, optional);
 
-        var actions = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
-        Page.Children.Add(actions);
-        Button(actions, "Atama ve güzergâha dön", MoveToPermanentAssignment);
-        Button(actions, "Vazgeç", CancelEntry);
-        Button(actions, "Kaydet", SaveEntry);
+        Button(result, "Kaydet", SaveEntry);
     }
 
     private static string RelocationLineId(DutyRecord duty) => "OTO-YD-" + duty.Id.ToString("N");
