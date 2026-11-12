@@ -135,6 +135,21 @@ public sealed class TravelWorkflowService(string tariffPath, CalculationConstant
         if (!IsCurrent(p, d) || d.Snapshot?.Amount is null)
             return new(DraftDecisionStatus.NeedsReview,
                 "Güncel hesap bulunamadı. Kaydı yeniden hesaplayıp kaydedin.", null);
+        // Kullanıcının yanlış elle yazdığı gündelik/yer değiştirme tutarı PDF'ye
+        // taşınmasın. Yalnız aritmetik denetlenir; belge hak sahipliği beyan edilmez.
+        var itemKind = d.Kind == DraftKind.PermanentDuty
+            ? DraftLineKind.Relocation : DraftLineKind.DailyAllowance;
+        var calculated = d.Kind == DraftKind.PermanentDuty || d.Departure.Date == d.Return.Date
+            ? d.Snapshot.Amount
+            : d.Snapshot.Components?.FirstOrDefault(x => x.Label == "Gündelik")?.Amount;
+        if (calculated is decimal raw && raw > 0m)
+        {
+            var expected = decimal.Round(raw, 2, MidpointRounding.AwayFromZero);
+            var lines = d.Expenses.Where(x => x.Kind == itemKind).ToArray();
+            if (lines.Length != 1 || lines[0].Amount != expected)
+                return new(DraftDecisionStatus.Inconsistent,
+                    "Hesaplanan gündelik/yer değiştirme tutarı gider satırıyla eşleşmiyor. Kaydı yeniden hesaplayın.", null);
+        }
         return DraftDocumentService.CreateCalculationCopy(new(d.Kind, d.DocumentNumber,
             p.FullName, p.Title, p.Institution, d.Origin, d.Destination,
             DateOnly.FromDateTime(d.Departure),
