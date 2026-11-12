@@ -86,7 +86,9 @@ public partial class MainWindow
         {
             if (duty.FamilyCount < 0) yield return ("FamilyCount", "Aile ferdi sayısı negatif olamaz.");
             if (duty.Kilometers < 0) yield return ("Kilometers", "Mesafe negatif olamaz.");
-            if (duty.SpouseTransfer) yield return ("SpouseTransfer", "Eşin aynı güzergâhta nakli ayrı inceleme gerektiriyor.");
+            if (duty.TravelFarePerPerson is decimal fare &&
+                (fare < 0m || fare != decimal.Round(fare, 2) || fare > 100000m))
+                yield return ("TravelFarePerPerson", "Taşıt ücreti 0–100.000 TL arasında ve kuruş hassasiyetinde olmalıdır.");
         }
         if (duty.Station == DutyStationAssessment.Unknown) yield return ("Station", "Memuriyet mahalli değerlendirmesini seçin.");
         if (includeExpenses)
