@@ -35,9 +35,9 @@ public partial class MainWindow
         var personHolder = new Grid();
         var assignmentHolder = new Grid();
         var resultHolder = new Grid();
-        Grid.SetColumn(personHolder, 0);
-        Grid.SetColumn(assignmentHolder, 2);
-        Grid.SetColumn(resultHolder, 4);
+        System.Windows.Controls.Grid.SetColumn(personHolder, 0);
+        System.Windows.Controls.Grid.SetColumn(assignmentHolder, 2);
+        System.Windows.Controls.Grid.SetColumn(resultHolder, 4);
         board.Children.Add(personHolder);
         board.Children.Add(assignmentHolder);
         board.Children.Add(resultHolder);
