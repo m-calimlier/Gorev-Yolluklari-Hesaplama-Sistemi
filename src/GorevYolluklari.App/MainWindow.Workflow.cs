@@ -369,10 +369,14 @@ public partial class MainWindow
         if (preview.Amount is null || preview.RuleVersion.StartsWith("SIM-", StringComparison.Ordinal)) return;
         var permanent = duty.Kind == DraftKind.PermanentDuty;
         var raw = permanent ? preview.Amount : DailyAmount(duty, preview);
-        if (raw is not decimal candidate || candidate <= 0m) return;
-        var amount = TransferAmount(candidate);
         var kind = permanent ? DraftLineKind.Relocation : DraftLineKind.DailyAllowance;
         var id = permanent ? RelocationLineId(duty) : DailyLineId(duty);
+        if (raw is not decimal candidate || candidate <= 0m)
+        {
+            duty.Expenses.RemoveAll(x => x.LineId == id);
+            return;
+        }
+        var amount = TransferAmount(candidate);
         var row = duty.Expenses.FirstOrDefault(x => x.LineId == id);
         // Önceden elle girilmiş aynı türdeki kalemin üzerine otomatik ikinci satır ekleme.
         if (row is null && duty.Expenses.Any(x => x.Kind == kind)) return;
@@ -389,10 +393,15 @@ public partial class MainWindow
 
         // Çok günlü görevde motorun hesapladığı konaklama üst sınırını PDF'ye
         // ayrıca aktarmak gerekir; aksi halde gündelik+konaklama eksik görünür.
-        if (!permanent && preview.Components?.FirstOrDefault(x => x.Label == "Konaklama") is
-                { Amount: > 0m } lodging)
+        if (!permanent)
         {
             var accommodationId = "OTO-KN-" + duty.Id.ToString("N");
+            if (preview.Components?.FirstOrDefault(x => x.Label == "Konaklama") is
+                not { Amount: > 0m } lodging)
+            {
+                duty.Expenses.RemoveAll(x => x.LineId == accommodationId);
+                return;
+            }
             var accommodation = duty.Expenses.FirstOrDefault(x => x.LineId == accommodationId);
             if (accommodation is null && duty.Expenses.Any(x => x.Kind == DraftLineKind.Accommodation)) return;
             if (accommodation is null)
