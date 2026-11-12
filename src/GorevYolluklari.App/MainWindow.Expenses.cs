@@ -24,7 +24,7 @@ public partial class MainWindow
             ? new[] { DraftLineKind.DailyAllowance, DraftLineKind.TicketOrTravel, DraftLineKind.Accommodation }
             : new[] { DraftLineKind.DailyAllowance, DraftLineKind.TicketOrTravel, DraftLineKind.FamilyDaily,
                 DraftLineKind.FamilyTravel, DraftLineKind.Relocation };
-        card.Children.Add(Text("Hesaplanan kalemleri aktarın. Taşıt ve diğer belge giderleri için tutarı ve dayanak referansını girin.", 12));
+        card.Children.Add(Text("Gündelik veya yer değiştirme tutarı Kaydet ile otomatik eklenir. Yalnız ek taşıt, aile ya da konaklama gideriniz varsa aşağıdan girin.", 12));
 
         var actions = new WrapPanel();
         card.Children.Add(actions);
@@ -63,7 +63,6 @@ public partial class MainWindow
 
         if (duty.Kind == DraftKind.TemporaryDuty)
         {
-            Button(actions, "Gündeliği giderlere aktar", () => TransferDailyAllowance(duty, row => Append(row, true)));
             Button(actions, "Taşıt gideri ekle", () => Add(DraftLineKind.TicketOrTravel));
             Button(actions, "Konaklama gideri ekle", () => Add(DraftLineKind.Accommodation));
         }
