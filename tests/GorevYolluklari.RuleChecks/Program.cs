@@ -30,7 +30,9 @@ Check("45. madde - 20x+20x+%5 x km", g.Status == DraftStatus.Preliminary && g.Un
 var h = RelocationExpensePreview.Calculate(1000m, 7, 100m, DutyStationAssessment.Outside, true, true, false, tariff, "KGM-TEST-001");
 Check("45. madde - aile bileşeninde 40 gündelik tavan", h.UnroundedAmount == 65000m);
 var i = RelocationExpensePreview.Calculate(1000m, 2, 100m, DutyStationAssessment.Outside, true, true, true, tariff, "KGM-TEST-001");
-Check("Eşin aynı güzergâhta memur nakli manuel inceleme", i.Status == DraftStatus.NeedsReview);
+Check("Aynı güzergâhta ikinci memur eş: yalnız mesafe unsuru yarım", 
+    i.Status == DraftStatus.Preliminary && i.UnroundedAmount == 42500m &&
+    i.Reason.Contains("%50"));
 var j = RelocationExpensePreview.Calculate(1000m, 0, 100m, DutyStationAssessment.Outside, false, true, false, tariff, "KGM-TEST-001");
 Check("Hak sahipliği incelenmeden taşınma hesabı yok", j.Status == DraftStatus.NeedsReview);
 var caught = false;
