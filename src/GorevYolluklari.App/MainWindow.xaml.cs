@@ -89,29 +89,36 @@ public partial class MainWindow : Window
     private StackPanel Card(string title, Panel? parent = null)
     {
         var content = new StackPanel();
-        var heading = Text(title, 20);
-        heading.Foreground = (Brush)FindResource("Gold");
-        heading.FontWeight = FontWeights.SemiBold;
+        var heading = new TextBlock { Text = Heading(title), Style = (Style)FindResource("HakedisCardTitle") };
         content.Children.Add(heading);
-        (parent ?? Page).Children.Add(new Border { Style = (Style)FindResource("WorkspaceCard"), Child = content });
+        (parent ?? Page).Children.Add(new Border { Style = (Style)FindResource("HakedisWorkspaceCard"), Child = content });
         return content;
     }
     private Border Metric(string caption, string amount)
     {
-        var value = new TextBlock { Text = amount, FontSize = 24, FontWeight = FontWeights.SemiBold,
-            Foreground = (Brush)FindResource("Gold") };
+        var value = new TextBlock { Text = amount, FontSize = 26, FontWeight = FontWeights.Bold,
+            Foreground = (Brush)FindResource("HakedisGoldBrush"), Margin = new(0, 6, 0, 0) };
         var content = new StackPanel();
-        content.Children.Add(new TextBlock { Text = Heading(caption), Foreground = Brushes.LightSteelBlue });
+        content.Children.Add(new TextBlock { Text = Heading(caption), Style = (Style)FindResource("HakedisCardSubtitle") });
         content.Children.Add(value);
-        return new Border { Style = (Style)FindResource("OverviewMetric"), Child = content };
+        return new Border { Style = (Style)FindResource("HakedisMetricCard"), Child = content };
     }
     private Button Button(Panel parent, string label, Action action)
     {
-        var b = new Button { Content = label }; AutomationProperties.SetName(b, label); b.Click += (_, _) => Safe(action); parent.Children.Add(b); return b;
+        var important = label.Contains("PDF", StringComparison.OrdinalIgnoreCase) ||
+            label is "Hesapla" or "Sonucu hesapla" or "Kaydet";
+        var b = new Button { Content = label, Style = (Style)FindResource(important ?
+            "HakedisPrimaryAction" : "HakedisSecondaryAction") };
+        if (label == "Kaydet") b.Style = (Style)FindResource("HakedisSecondaryAction");
+        AutomationProperties.SetName(b, label);
+        b.Click += (_, _) => Safe(action);
+        parent.Children.Add(b);
+        return b;
     }
     private TextBox Field(Panel parent, string label, object source, string path, string? format = null)
     {
-        var box = new TextBox(); AutomationProperties.SetName(box, label);
+        var box = new TextBox { Style = (Style)FindResource("HakedisFieldText") };
+        AutomationProperties.SetName(box, label);
         var binding = new Binding(path) { Source = source, Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.LostFocus, ValidatesOnExceptions = true, NotifyOnSourceUpdated = true, ConverterCulture = Tr, StringFormat = format };
         if (source.GetType().GetProperty(path)!.PropertyType == typeof(DateTime?))
         {
@@ -123,7 +130,8 @@ public partial class MainWindow : Window
         var previous = property.GetValue(source);
         var key = source is ExpenseEntry expense ? ExpenseKey(expense, path) : path;
         box.SourceUpdated += (_, _) => { var current = property.GetValue(source); if (!Equals(previous, current)) { previous = current; Invalidate(source, key); } };
-        parent.Children.Add(new Label { Content = new TextBlock { Text = Heading(label) }, Target = box });
+        parent.Children.Add(new Label { Content = new TextBlock { Text = Heading(label) },
+            Target = box, Style = (Style)FindResource("HakedisFieldLabel") });
         parent.Children.Add(box);
         RegisterIssue(key, box, parent);
         _editors.Add(box);
@@ -140,7 +148,10 @@ public partial class MainWindow : Window
     }
     private ComboBox Choice(Panel parent, string label, System.Collections.IEnumerable items, object source, string path)
     {
-        var combo = new ComboBox { ItemsSource = items is Option[] labels ? labels : Options(items), DisplayMemberPath = "Label", SelectedValuePath = "Value" }; AutomationProperties.SetName(combo, label);
+        var combo = new ComboBox { ItemsSource = items is Option[] labels ? labels : Options(items),
+            DisplayMemberPath = "Label", SelectedValuePath = "Value",
+            Style = (Style)FindResource("HakedisFieldCombo") };
+        AutomationProperties.SetName(combo, label);
         combo.SetBinding(Selector.SelectedValueProperty, new Binding(path) { Source = source, Mode = BindingMode.TwoWay, NotifyOnSourceUpdated = true });
         var property = source.GetType().GetProperty(path)!;
         var previous = property.GetValue(source);
@@ -149,7 +160,8 @@ public partial class MainWindow : Window
         {
             var current = property.GetValue(source);
             if (!Equals(previous, current)) { previous = current; Invalidate(source, key); }
-        }; parent.Children.Add(new Label { Content = new TextBlock { Text = label } }); parent.Children.Add(combo); RegisterIssue(key, combo, parent); return combo;
+        }; parent.Children.Add(new Label { Content = new TextBlock { Text = label },
+            Style = (Style)FindResource("HakedisFieldLabel") }); parent.Children.Add(combo); RegisterIssue(key, combo, parent); return combo;
     }
     private void Invalidate(object? source = null, string? property = null)
     {
