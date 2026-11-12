@@ -107,35 +107,4 @@ public partial class MainWindow
         }
     }
 
-    private static IEnumerable<(string Key, string Message)> DocumentIssues(DutyRecord duty, string? reason = null, bool includeReview = true)
-    {
-        if (includeReview && !duty.AmountsReviewed) yield return ("AmountsReviewed", "Belge ve tutar incelemesini tamamlayın.");
-        if (duty.Expenses.Count == 0) yield return ("Expenses", "Belge için en az bir doğrulanmış gider satırı girin.");
-        foreach (var issue in ExpenseIssues(duty)) yield return issue;
-        if (!TryExpenseTotals(duty, out var gross, out var net))
-        {
-            yield return ("Expenses", "Gider toplamı hesaplanamadı. Tutarları kontrol edin.");
-            yield break;
-        }
-        if (duty.IndependentGross is null || duty.IndependentGross != gross)
-            yield return ("IndependentGross", "Bağımsız brüt tutarı girin ve gider toplamıyla karşılaştırın.");
-        if (duty.IndependentNet is null || duty.IndependentNet != net)
-            yield return ("IndependentNet", "Bağımsız net tutarı girin ve avans sonrası toplamla karşılaştırın.");
-        if (duty.Advance < 0 || duty.Advance > gross) yield return ("Advance", "Avans sıfır ile brüt toplam arasında olmalı.");
-        if (duty.Advance > 0 && string.IsNullOrWhiteSpace(duty.AdvanceEvidence))
-            yield return ("AdvanceEvidence", "Avansın dayanağını girin.");
-        if (reason is not null && duty.AmountsReviewed && duty.Expenses.Count > 0 &&
-            duty.IndependentGross == gross && duty.IndependentNet == net)
-            yield return ("AmountsReviewed", reason);
-    }
-
-    private void OpenPdfIssues(DutyRecord duty, string reason)
-    {
-        OpenEntry(duty, reviewPdf: true);
-        if (_form?.Id != duty.Id || Navigation.SelectedIndex != 1) return;
-        if (duty.Kind == DraftKind.PermanentDuty && _permanentPreview is null)
-            CheckFormIssues(DutyIssues(_form, _formPerson!, includeExpenses: false));
-        else
-            CheckFormIssues(DocumentIssues(duty, reason));
-    }
 }
