@@ -10,7 +10,7 @@
    <TextBlock Text="2026 · Yurt içi · v0.8" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="#B9C8DC"/>
   </DockPanel>
   <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-   <Border Style="{StaticResource WorkspaceCard}" Padding="0" Margin="0,0,14,0"><DockPanel Margin="8"><TextBlock DockPanel.Dock="Bottom" Text="KONTROL TASLAĞI&#10;ÖDEME BELGESİ DEĞİLDİR" Foreground="{StaticResource Gold}" FontSize="11" Margin="8,14"/><ListBox x:Name="Navigation" ItemContainerStyle="{StaticResource WorkspaceNavigationItem}"
+   <Border Style="{StaticResource WorkspaceCard}" Padding="0" Margin="0,0,14,0"><DockPanel Margin="8"><TextBlock DockPanel.Dock="Bottom" Text="YOLLUK HESAPLAMA&#10;RESMÎ ONAY DEĞİLDİR" Foreground="{StaticResource Gold}" FontSize="11" Margin="8,14"/><ListBox x:Name="Navigation" ItemContainerStyle="{StaticResource WorkspaceNavigationItem}"
       Background="Transparent" BorderThickness="0" Foreground="White"
       ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled">
      <ListBox.ItemsPanel>
