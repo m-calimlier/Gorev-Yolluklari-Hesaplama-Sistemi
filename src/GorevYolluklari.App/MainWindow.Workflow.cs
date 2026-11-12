@@ -284,8 +284,7 @@ public partial class MainWindow
     private void SaveCurrent()
     {
         if (Navigation.SelectedIndex != 1 || _form is null) Save();
-        else if (PersonIsReady) SaveEntry();
-        else SaveEntryPerson();
+        else SaveEntry(); // Kişi kaydı gerekiyorsa görev kaydı sırasında otomatik yapılır.
     }
 
     private void SaveEntryPerson()
