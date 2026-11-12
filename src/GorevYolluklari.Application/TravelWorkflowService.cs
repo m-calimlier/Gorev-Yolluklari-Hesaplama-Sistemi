@@ -208,7 +208,7 @@ public sealed class TravelWorkflowService(string tariffPath, CalculationConstant
                 (Id: "OTO-TQ-", Kind: DraftLineKind.DailyAllowance,
                     Value: Get("Gidiş yol gündeliği") + Get("Görev gündeliği") + Get("Dönüş yol gündeliği")),
                 (Id: "OTO-LQ-", Kind: DraftLineKind.Accommodation, Value: Get("Konaklama")),
-                (Id: "OTO-OQ-", Kind: DraftLineKind.TicketOrTravel, Value: Get("Diğer masraflar"))
+                (Id: "OTO-OQ-", Kind: DraftLineKind.OtherEligible, Value: Get("Diğer masraflar"))
             };
             var expectedIds = new HashSet<string>(StringComparer.Ordinal);
             foreach (var row in expected)
@@ -265,7 +265,7 @@ public sealed class TravelWorkflowService(string tariffPath, CalculationConstant
             2026, d.Snapshot.TariffReference, d.Snapshot.RuleVersion,
             d.AssignmentEvidence, d.StationEvidence,
             false, false, d.Expenses.Select(x => x.ToLine()).ToArray(),
-            d.Advance, d.AdvanceEvidence, 0m, 0m));
+            d.Advance, d.AdvanceEvidence, 0m, 0m, d.Kind == DraftKind.TemporaryDuty && d.QuickTemporaryEnabled));
     }
 
 }
