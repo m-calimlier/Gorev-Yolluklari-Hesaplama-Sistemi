@@ -60,8 +60,7 @@ public partial class MainWindow
 
         var assignment = Card("2 · Atama ve Güzergâh", assignmentHolder);
         var guarded = Dependent(assignment);
-        Field(guarded, "Belge numarası", duty, nameof(duty.DocumentNumber));
-        _taskStart = _editors.Last();
+        guarded.Children.Add(Text("Kayıt kodu otomatik oluşturulur.", 12));
         var origin = new StackPanel();
         var destination = new StackPanel();
         guarded.Children.Add(origin);
@@ -161,6 +160,7 @@ public partial class MainWindow
         BuildDocumentFields(duty, optional);
 
         Button(result, "Kaydet", SaveEntry);
+        Button(result, "Kaydet ve PDF oluştur", SaveAndMakePdf);
     }
 
     private static string RelocationLineId(DutyRecord duty) => "OTO-YD-" + duty.Id.ToString("N");
