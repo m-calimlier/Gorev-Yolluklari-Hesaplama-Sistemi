@@ -103,6 +103,15 @@ internal static class Program
             }
 
             Check("Ana ekran veri girisiyle acilir", navigation.SelectedIndex == 1);
+            var headerTitles = Descendants<TextBlock>(window).Where(x =>
+                x.Text == "GÖREV YOLLUKLARI HESAPLAMA CETVELİ").ToArray();
+            Check("Baslik tek font boyutuyla altin vurguda",
+                headerTitles.Length == 1 && headerTitles[0].FontSize >= 23 &&
+                headerTitles[0].FontWeight == FontWeights.Bold);
+            Check("Sol altta Created by Murat ÇALIMLIER imzasi var",
+                Descendants<TextBlock>(window).Any(x =>
+                    x.Text == "Created by Murat ÇALIMLIER" && x.FontWeight == FontWeights.Bold));
+
             Check("Iki gorev turu secilebilir", Tabs().Items.Count == 3);
             window.UpdateLayout();
             Check("Gorev basliklari kesilmez",
@@ -124,7 +133,7 @@ internal static class Program
                 ReferenceEquals(FindButton("Hesapla").Style, window.FindResource("HakedisPrimaryAction")));
 
             window.Width = 1700; window.Height = 900; window.UpdateLayout();
-            var tempTitles = new[] { "1 · Bütçe Ve Tarife", "2 · Gidiş Ve Dönüş", "3 · Sonuç" }
+            var tempTitles = new[] { "1 · Bütçe Ve Tarife", "2 · Gidiş Ve Dönüş", "3 · Görev Ve Konaklama" }
                 .Select(title => Descendants<TextBlock>(page).First(x => x.Text == title && x.FontSize >= 18))
                 .Select(x => x.TranslatePoint(new Point(), page)).ToArray();
             Check("Referans gecici gorev uc kart ayni satirda",
@@ -161,7 +170,9 @@ internal static class Program
                         b.Color.B < 180));
                 legalWindow?.Close();
             }
-            Click(FindButton("Kaydet ve PDF oluştur"));
+            Check("Veri girisinde kaydet ve PDF butonlari yok",
+                !Descendants<Button>(page).Any(x => x.Content is string t && t.Contains("PDF")));
+            Click(FindButton("Hesapla"));
             Check("Eksik tarife girdisi kaydedilmez", repository.Load().Duties.Count == 0);
 
             Pick("Aylık Kadro Derecesi", 5);
@@ -177,10 +188,15 @@ internal static class Program
             Set("Günlük Konaklama Ücreti (TL)", "900");
             Set("Diğer Masraflar Toplamı (TL)", "50");
             Click(FindButton("Hesapla"));
+            Check("Hesapla tiklaninca sonuc paneline gidilir",
+                navigation.SelectedIndex == 2 && repository.Load().Duties.Count == 0);
             Check("Gecici 2026 kisa hesap toplam 5470 TL", Descendants<TextBlock>(page)
                 .Any(x => x.Text == "5.470,00 TL"));
+            Check("Sonuc panelinde tek kaydet PDF aksiyonu var",
+                Descendants<Button>(page).Count(x => x.Content is string t && t.Contains("PDF")) == 1 &&
+                FindButton("Düzenle") is not null && FindButton("Sil") is not null);
             Capture("Gecici_Referans_Hesaplanmis", 1366, 768);
-            Click(FindButton("Kaydet ve PDF oluştur"));
+            Click(FindButton("Kaydet / PDF oluştur"));
             var temporary = repository.Load().Duties.Single();
             Check("Kisi tekrar girilmeden otomatik kaydedildi", repository.Load().Personnel.Count == 1);
             Check("Gecici kisa hesap bes otomatik gider satiri",
@@ -191,23 +207,21 @@ internal static class Program
                 temporary.Expenses.Where(x => x.Kind == DraftLineKind.TicketOrTravel).Sum(x => x.Amount) == 220m);
             Check("Gecici hesap PDF olusturuldu",
                 Directory.GetFiles(PortablePaths.Outputs, "*.pdf").Length == 1 &&
-                openedFolder == PortablePaths.Outputs && FindButton("PDF").IsEnabled);
+                openedFolder == PortablePaths.Outputs && FindButton("PDF oluştur").IsEnabled);
 
             Go(1);
             SelectTab(1);
-            Check("Sürekli görev dokuz alanlı üç kart",
+            Check("Sürekli görev iki giris karti, sonuc ayrica",
                 Descendants<TextBlock>(page).Any(x => x.Text == "1 · Tarife Ve Aile") &&
                 Descendants<TextBlock>(page).Any(x => x.Text == "2 · Eski Ve Yeni Görev Yeri") &&
-                Descendants<TextBlock>(page).Any(x => x.Text == "3 · Sonuç"));
+                !Descendants<TextBlock>(page).Any(x => x.Text == "3 · Sonuç"));
             window.Width = 1700; window.Height = 900; window.UpdateLayout();
             var firstTitle = Descendants<TextBlock>(page).First(x => x.Text == "1 · Tarife Ve Aile" && x.FontSize >= 18);
             var secondTitle = Descendants<TextBlock>(page).First(x => x.Text == "2 · Eski Ve Yeni Görev Yeri" && x.FontSize >= 18);
-            var thirdTitle = Descendants<TextBlock>(page).First(x => x.Text == "3 · Sonuç" && x.FontSize >= 18);
             var p1 = firstTitle.TranslatePoint(new Point(), page);
             var p2 = secondTitle.TranslatePoint(new Point(), page);
-            var p3 = thirdTitle.TranslatePoint(new Point(), page);
-            Check("Uc kart gercekten yanyana", p2.X > p1.X + 150 && p3.X > p2.X + 150 &&
-                Math.Abs(p1.Y - p2.Y) < 30 && Math.Abs(p2.Y - p3.Y) < 30);
+            Check("Iki giris karti yanyana", p2.X > p1.X + 150 &&
+                Math.Abs(p1.Y - p2.Y) < 30);
             Check("Sürekli görevde gereksiz personel/onay alanı yok",
                 !Descendants<TextBox>(page).Any(x =>
                     AutomationProperties.GetName(x) == "Ad soyad" ||
@@ -236,6 +250,7 @@ internal static class Program
             Set("Mesafe (km)", "84");
             Set("Taşıt Ücreti (1 kişi için TL, varsa)", "250");
             Click(FindButton("Hesapla"));
+            Check("Surekli hesaplamadan dogrudan sonuc paneline", navigation.SelectedIndex == 2);
             Check("Sürekli hesap toplamı 31.270 TL", Descendants<TextBlock>(page)
                 .Any(x => x.Text == "31.270,00 TL"));
             Check("Sürekli yer değiştirme bileşeni doğru", Descendants<TextBlock>(page)
@@ -243,7 +258,7 @@ internal static class Program
             Check("Fazladan gider ve belge kartı yok", !Descendants<Button>(page)
                 .Any(x => Equals(x.Content, "Yer değiştirmeyi giderlere aktar") ||
                           Equals(x.Content, "Kişiyi kaydet")));
-            Click(FindButton("Kaydet ve PDF oluştur"));
+            Click(FindButton("Kaydet / PDF oluştur"));
             var permanent = repository.Load().Duties.Single(x => x.Kind == DraftKind.PermanentDuty);
             var lines = permanent.Expenses;
             Check("9 alan otomatik gider satirlarina aktarildi",
@@ -257,7 +272,7 @@ internal static class Program
                 permanent.TravelFarePerPerson == 250m &&
                 permanent.Departure.Year == 2026 && permanent.Station == DutyStationAssessment.Outside);
             Check("Surekli PDF olusturuldu", Directory.GetFiles(PortablePaths.Outputs, "*.pdf").Length == 2 &&
-                FindButton("PDF").IsEnabled);
+                FindButton("PDF oluştur").IsEnabled);
             Check("Onay beyanı uydurulmadi", !permanent.AmountsReviewed &&
                 !permanent.AssignmentReviewed && !permanent.StationReviewed);
             window.Hide();
