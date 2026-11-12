@@ -110,6 +110,10 @@ internal static class Program
 
             Check("Ana ekran veri girisiyle acilir", navigation.SelectedIndex == 1);
             Check("Iki gorev turu secilebilir", Tabs().Items.Count == 3);
+            window.UpdateLayout();
+            Check("Gorev basliklari kesilmez",
+                Tabs().Items.OfType<TabItem>().Where(x => x.Visibility == Visibility.Visible)
+                    .All(x => x.ActualHeight >= 42 && x.ActualWidth >= 120));
             SelectTab(0);
             Check("Gecici gorev ekrani acildi", Tabs().SelectedIndex == 1);
             Check("Yeniden brüt net girisi yok", !Descendants<TextBox>(page).Any(x =>
@@ -123,8 +127,6 @@ internal static class Program
             Click(FindButton("Kaydet ve PDF oluştur"));
             Check("Eksik personel kaydedilmez", repository.Load().Duties.Count == 0);
             Set("Ad soyad", "SENTETİK PERSONEL");
-            Set("Unvan", "SENTETİK UNVAN");
-            Set("Kurum", "SENTETİK KURUM");
             Pick("Statü", PersonnelTariffGroup.GeneralCivilServant);
             Pick("Derece", 5);
             Set("Ek gösterge", "0");
@@ -175,6 +177,15 @@ internal static class Program
                     AutomationProperties.GetName(x) == "İnceleyen beyanı / kayıt referansı" ||
                     AutomationProperties.GetName(x) == "KGM / mesafe kanıtı"));
             Capture("Surekli_Uc_Kart_Sade", 1700, 900);
+            window.Width = 1024; window.Height = 768; window.UpdateLayout();
+            var boardScroll = Descendants<ScrollViewer>(page)
+                .First(x => x.HorizontalScrollBarVisibility == ScrollBarVisibility.Visible);
+            Check("Dar pencerede yatay kaydirma gercekten etkin",
+                boardScroll.ScrollableWidth > 0);
+            boardScroll.ScrollToHorizontalOffset(210);
+            window.UpdateLayout();
+            Check("Yatay kaydirma cubugu hareket ediyor", boardScroll.HorizontalOffset > 0);
+            window.Width = 1700; window.Height = 900; window.UpdateLayout();
             var people = ChoiceBox("Personel seçimi");
             people.SelectedIndex = 1;
             window.UpdateLayout();
