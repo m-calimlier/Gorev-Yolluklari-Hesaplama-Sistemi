@@ -317,19 +317,22 @@ public partial class MainWindow
             candidate.DocumentNumber.Trim(), StringComparison.OrdinalIgnoreCase)))
             CheckFormIssues([("DocumentNumber", "Bu belge numarası başka bir görevde kullanılıyor.")]);
 
-        candidate.ReviewedAt = candidate.AmountsReviewed ? DateTimeOffset.UtcNow : null;
+        // Belge incelemesi yapıldığını varsaymadan tutarı hesapla.
+        // Tutarı iki kez yazdırma ve "kontrol edildi" beyanı isteme.
+        candidate.AmountsReviewed = false;
+        candidate.ReviewedAt = null;
         var service = Service;
-        candidate.Snapshot = service.Preview(person, candidate);
-        if (candidate.Snapshot.Amount is null)
+        var calculation = service.PreviewForCalculation(person, candidate);
+        if (calculation.Amount is null)
             CheckFormIssues([(candidate.Kind == DraftKind.TemporaryDuty && candidate.Departure.Date != candidate.Return.Date
-                ? "ReviewedDays" : "Departure", candidate.Snapshot.Explanation)]);
+                ? "ReviewedDays" : "Departure", calculation.Explanation)]);
+        SyncCalculatedExpense(candidate, calculation);
+        candidate.Snapshot = service.PreviewForCalculation(person, candidate);
         CheckFormIssues(CalculatedExpenseIssues(candidate, candidate.Snapshot));
-        if (candidate.AmountsReviewed)
-        {
-            var review = service.PrepareDraft(person, candidate);
-            if (!review.MayPrintDraft) CheckFormIssues(DocumentIssues(candidate, review.Reason));
-        }
-        else ReviewPdfOnSave(candidate, person);
+        CheckFormIssues(ExpenseIssues(candidate));
+        if (candidate.Advance < 0m || (candidate.Expenses.Count > 0 &&
+                candidate.Advance > candidate.Expenses.Sum(x => x.Amount)))
+            CheckFormIssues([("Advance", "Avans tutarı gider toplamını aşamaz veya negatif olamaz.")]);
 
         var next = CurrentWorkspace();
         var dutyIndex = next.Duties.FindIndex(d => d.Id == candidate.Id);
@@ -340,6 +343,30 @@ public partial class MainWindow
         Status.Text = "Görev ve hesap sonucu kaydedildi.";
         _dialog("Görev ve hesap sonucu kaydedildi.", "Kayıt başarılı", MessageBoxButton.OK);
         Navigation.SelectedIndex = 2;
+    }
+
+    private static void SyncCalculatedExpense(DutyRecord duty, CalculationSnapshot preview)
+    {
+        if (preview.Amount is null || preview.RuleVersion.StartsWith("SIM-", StringComparison.Ordinal)) return;
+        var permanent = duty.Kind == DraftKind.PermanentDuty;
+        var raw = permanent ? preview.Amount : DailyAmount(duty, preview);
+        if (raw is not decimal candidate || candidate <= 0m) return;
+        var amount = TransferAmount(candidate);
+        var kind = permanent ? DraftLineKind.Relocation : DraftLineKind.DailyAllowance;
+        var id = permanent ? RelocationLineId(duty) : DailyLineId(duty);
+        var row = duty.Expenses.FirstOrDefault(x => x.LineId == id);
+        // Önceden elle girilmiş aynı türdeki kalemin üzerine otomatik ikinci satır ekleme.
+        if (row is null && duty.Expenses.Any(x => x.Kind == kind)) return;
+        if (row is null)
+        {
+            row = new ExpenseEntry { LineId = id };
+            duty.Expenses.Add(row);
+        }
+        row.Kind = kind;
+        row.Amount = amount;
+        row.Description = permanent ? "Yer değiştirme gideri" : "Gündelik";
+        row.LegalBasis = permanent ? "6245 m.45" : preview.LegalBasis;
+        row.Evidence = duty.AssignmentEvidence; // Boş olabilir: belgeyi memur kontrol eder.
     }
 
     private WorkspaceRecords CurrentWorkspace() => new()
@@ -429,15 +456,15 @@ public partial class MainWindow
             : $"{selected.Departure:dd.MM.yyyy} – {selected.Return:dd.MM.yyyy}";
         identity.Children.Add(Text($"{selected.Origin} → {selected.Destination}  ·  {dates}"));
 
-        var review = Service.PrepareDraft(person, selected);
+        var review = Service.PrepareCalculationPdf(person, selected);
         var document = Card("Belge durumu", second.Right);
-        if (review.MayPrintDraft) document.Children.Add(Text("Kontrol taslağı oluşturulabilir."));
+        if (review.MayPrintDraft) document.Children.Add(Text("Yolluk hesaplama PDF'si hazır."));
         else
         {
             var reason = Text(review.Reason);
             reason.Foreground = Brushes.LightCoral;
             document.Children.Add(reason);
-            Button(document, "PDF eksiklerini aç", () => OpenPdfIssues(selected, review.Reason));
+            Button(document, "Kaydı düzenle", () => OpenEntry(selected));
         }
         if (selected.Expenses.Count > 0)
         {
@@ -449,7 +476,7 @@ public partial class MainWindow
             var payment = Text(ComputePaymentSummary(selected), 16);
             payment.Foreground = (Brush)FindResource("Gold");
             document.Children.Add(payment);
-            document.Children.Add(Text("2026 damga vergisi dahildir. Tutar bilgilendirme amaçlıdır; PDF hâlen kontrol taslağıdır.", 12));
+            document.Children.Add(Text("Bu belge yolluk hesaplama çıktısıdır; kurumun resmi inceleme ve onayının yerine geçmez.", 12));
         }
         var actions = new WrapPanel();
         Page.Children.Add(actions);
