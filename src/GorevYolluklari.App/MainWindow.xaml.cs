@@ -200,7 +200,6 @@ public partial class MainWindow : Window
         CancelDistance();
         _issueTargets.Clear();
         _expenseSummary = null;
-        _expenseReviewStatus = null;
         _entryBoardScroll = null;
         Page.Children.Clear(); _dependentEntryCards.Clear(); _personStatus = null; _taskStart = null; _editors.Clear(); _reviewChecks.Clear(); PageScroll.ScrollToTop();
         switch (Navigation.SelectedIndex)
