@@ -139,10 +139,14 @@ public static class TravelDraftPdfWriter
             g.DrawLine(new XPen(Gold, 1.6), Left, y, width - Right, y);
             Text(g, "Brüt: " + DraftDocumentService.Money(doc.GrossTry), bold, Left, y + 10, 245);
             Text(g, "Avans: " + DraftDocumentService.Money(doc.AdvanceTry), bold, 305, y + 10, 215);
-            Text(g, "Net ön hesap: " + DraftDocumentService.Money(doc.NetTry), bold, 545, y + 10, 255);
+            Text(g, "Damga öncesi: " + DraftDocumentService.Money(doc.NetTry), bold, 545, y + 10, 255);
         }
+        var tax = decimal.Round(doc.GrossTry * 0.00759m, 2, MidpointRounding.AwayFromZero);
         DrawFooter(g, width, height,
-            "Görev oluru: " + doc.AssignmentEvidence + " | Mahallî değerlendirme: " + doc.StationEvidence);
+            "Görev oluru: " + doc.AssignmentEvidence + " | Mahallî değerlendirme: " + doc.StationEvidence,
+            pageNo == pageCount - 1
+                ? $"2026 damga vergisi (binde 7,59): {Currency(tax)} TL | Tahmini ödenecek: {Currency(doc.NetTry - tax)} TL"
+                : null);
     }
 
     private static void DrawPageTop(XGraphics g, double width, string title, string detail)
@@ -182,12 +186,13 @@ public static class TravelDraftPdfWriter
         Text(g, "Avans: " + advance, bold, 400, y+9, 185);
         Text(g, "Net: " + net, bold, 612, y+9, 180);
     }
-    private static void DrawFooter(XGraphics g, double width, double height, string note)
+    private static void DrawFooter(XGraphics g, double width, double height, string note, string? payment = null)
     {
         g.DrawLine(new XPen(Gold, 1.4), Left, height - 58, width - Right, height - 58);
         Text(g, "ÖDEME BELGESİ DEĞİLDİR - İMZAYA / MUHASEBEYE SUNULAMAZ", Font(8, true), Left, height - 51, width-2*Left);
         Text(g, note, Font(7), Left, height - 35, width - 2 * Left);
-        Text(g, "Bu taslak Örnek 27/28'in onaylı sureti değildir; mevzuat ve belge kontrolü bekleniyor.", Font(7), Left, height - 23, width - 2 * Left);
+        Text(g, payment ?? "Bu taslak Örnek 27/28'in onaylı sureti değildir; mevzuat ve belge kontrolü bekleniyor.",
+            Font(7), Left, height - 23, width - 2 * Left);
     }
     private static string KindText(DraftLineKind kind) => kind switch
     {
