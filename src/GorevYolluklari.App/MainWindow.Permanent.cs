@@ -155,6 +155,7 @@ public partial class MainWindow
             Content = "Bütçe Dönemi",
             Style = (Style)FindResource("HakedisFieldLabel")
         });
+        CiteLastLabel(tariff, "Bütçe Dönemi", "H2026");
         tariff.Children.Add(new Border
         {
             Style = (Style)FindResource("HakedisInfoCard"),
@@ -166,7 +167,8 @@ public partial class MainWindow
             }
         });
 
-        Choice(tariff, "Aylık Kadro Derecesi", Enumerable.Range(1, 15), person, nameof(person.Grade));
+        LegalChoice(tariff, "Aylık Kadro Derecesi", Enumerable.Range(1, 15),
+            person, nameof(person.Grade), "H2026");
 
         var indicatorOptions = new[]
         {
@@ -197,14 +199,15 @@ public partial class MainWindow
             Target = indicator,
             Style = (Style)FindResource("HakedisFieldLabel")
         });
+        CiteLastLabel(tariff, "Ek Gösterge Grubu", "H2026");
         tariff.Children.Add(indicator);
         RegisterIssue(nameof(person.Indicator), indicator, tariff);
-        Choice(tariff, "Y.D.M. Değişken Unsuru", new[]
+        LegalChoice(tariff, "Y.D.M. Değişken Unsuru", new[]
         {
             new Option(false, "Normal tayin / eş durumu (tam)"),
             new Option(true, "Aynı güzergâhta atanan ikinci memur eş (%50)")
-        }, duty, nameof(duty.SpouseTransfer));
-        Field(tariff, "Aile Ferdi Sayısı (kendiniz hariç)", duty, nameof(duty.FamilyCount));
+        }, duty, nameof(duty.SpouseTransfer), "M45");
+        LegalField(tariff, "Aile Ferdi Sayısı (kendiniz hariç)", duty, nameof(duty.FamilyCount), "M45");
 
         route.Children.Add(Text("Eski ve yeni görev yerini seçin. Aynı yer seçilirse yer değiştirme gideri hesaplanmaz.", 12));
         var origin = new StackPanel();
@@ -212,9 +215,10 @@ public partial class MainWindow
         route.Children.Add(origin);
         route.Children.Add(destination);
         AddRoute(origin, destination, duty);
-        Field(route, "Mesafe (km)", duty, nameof(duty.Kilometers));
+        LegalField(route, "Mesafe (km)", duty, nameof(duty.Kilometers), "M45");
         Button(route, "K.G.M. mesafesini getir", () => _ = FillDistanceAsync(duty));
-        Field(route, "Taşıt Ücreti (1 kişi için TL, varsa)", duty, nameof(duty.TravelFarePerPerson));
+        LegalField(route, "Taşıt Ücreti (1 kişi için TL, varsa)", duty,
+            nameof(duty.TravelFarePerPerson), "M27", "M44");
 
         result.Children.Add(new Border
         {
