@@ -166,6 +166,14 @@ public partial class MainWindow : Window
     private void Invalidate(object? source = null, string? property = null)
     {
         if (property is not null) ClearIssue(property);
+        // Sonuçtan yan menüyle geri dönüp bir alan değiştirildiğinde,
+        // kaydedilmemiş eski hesabın yanlışlıkla yeniden gösterilmesini engelle.
+        if (_pendingDuty is not null && (ReferenceEquals(source, _form) ||
+            ReferenceEquals(source, _formPerson) || source is ReviewedDayEntry or ExpenseEntry))
+        {
+            _pendingDuty = null;
+            _pendingPerson = null;
+        }
         MarkChanged(source);
         if (source is PersonnelRecord && ReferenceEquals(source, _formPerson)) RefreshEntryAvailability();
         if (_form?.Kind == DraftKind.TemporaryDuty && (source is PersonnelRecord || source is DutyRecord ||
