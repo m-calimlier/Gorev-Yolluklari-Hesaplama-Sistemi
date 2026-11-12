@@ -152,6 +152,8 @@ public partial class MainWindow
     {
         ResetPermanentStep();
         _temporaryPreview = null;
+        _pendingDuty = null;
+        _pendingPerson = null;
         _selectedModule = kind;
         _formPerson = new PersonnelRecord();
         _formPersonBaseline = null;
@@ -175,6 +177,8 @@ public partial class MainWindow
             return;
         ResetPermanentStep();
         _temporaryPreview = null;
+        _pendingDuty = null;
+        _pendingPerson = null;
         _selectedModule = duty.Kind;
         _form = Copy(duty);
         _formPerson = Copy(Person(duty));
@@ -265,6 +269,8 @@ public partial class MainWindow
     {
         ResetPermanentStep();
         _temporaryPreview = null;
+        _pendingDuty = null;
+        _pendingPerson = null;
         _form = null;
         _formPerson = null;
         _formPersonBaseline = null;
@@ -275,8 +281,11 @@ public partial class MainWindow
 
     private void SaveCurrent()
     {
-        if (Navigation.SelectedIndex != 1 || _form is null) Save();
-        else SaveEntry(); // Kişi kaydı gerekiyorsa görev kaydı sırasında otomatik yapılır.
+        if (Navigation.SelectedIndex == 1 && _form is not null)
+            CalculateToResults();
+        else if (Navigation.SelectedIndex == 2 && _pendingDuty is not null)
+            SavePendingAndMakePdf();
+        else Save();
     }
 
     private void SaveEntryPerson()
@@ -319,8 +328,9 @@ public partial class MainWindow
             SetPermanentCalculationDefaults(Duty());
         if (_form?.Kind == DraftKind.TemporaryDuty && _form.QuickTemporaryEnabled)
             SetQuickTemporaryDefaults(Duty());
-        if (!PersonIsReady) SaveEntryPerson();
-        if (!PersonIsReady) throw new InvalidOperationException("Kişi bilgilerini tamamlayın.");
+        // Personel ve görev aynı dosya revizyonunda kaydedilir. Hesapla
+        // aşamasında diske hiçbir kayıt yapılmaz.
+        CheckFormIssues(PersonIssues(_formPerson!));
         var person = _formPerson!;
         var candidate = Copy(Duty());
         if (_formPersonBaseline is not null &&
@@ -355,6 +365,9 @@ public partial class MainWindow
             CheckFormIssues([("Advance", "Avans tutarı gider toplamını aşamaz veya negatif olamaz.")]);
 
         var next = CurrentWorkspace();
+        var personIndex = next.Personnel.FindIndex(p => p.Id == person.Id);
+        if (personIndex < 0) next.Personnel.Add(Copy(person));
+        else next.Personnel[personIndex] = Copy(person);
         var dutyIndex = next.Duties.FindIndex(d => d.Id == candidate.Id);
         if (dutyIndex < 0) next.Duties.Add(candidate);
         else next.Duties[dutyIndex] = candidate;
@@ -362,7 +375,8 @@ public partial class MainWindow
         ClearEntry();
         Status.Text = "Görev ve hesap sonucu kaydedildi.";
         if (notify) _dialog("Görev ve hesap sonucu kaydedildi.", "Kayıt başarılı", MessageBoxButton.OK);
-        Navigation.SelectedIndex = 2;
+        if (Navigation.SelectedIndex == 2) ShowPage();
+        else Navigation.SelectedIndex = 2;
     }
 
     private static void SyncQuickTemporaryExpenses(DutyRecord duty, CalculationSnapshot preview)
