@@ -109,6 +109,16 @@ internal static class Program
                     .All(x => x.ActualHeight >= 42 && x.ActualWidth >= 120));
             SelectTab(0);
             Check("Gecici gorev ekrani acildi", Tabs().SelectedIndex == 1);
+            Check("Ek Ders tasarimi giris kaynaklari yuklendi",
+                window.TryFindResource("HakedisWorkspaceCard") is Style &&
+                window.TryFindResource("HakedisFieldText") is Style &&
+                window.TryFindResource("HakedisFieldCombo") is Style &&
+                window.TryFindResource("HakedisDatePicker") is Style &&
+                window.TryFindResource("HakedisMetricCard") is Style);
+            Check("Ek Ders kart stili uygulandi",
+                Descendants<Border>(page).Any(x =>
+                    ReferenceEquals(x.Style, window.FindResource("HakedisWorkspaceCard"))));
+
             window.Width = 1700; window.Height = 900; window.UpdateLayout();
             var tempTitles = new[] { "1 · Kişi", "2 · Görev Ve Güzergâh", "3 · Sonuç" }
                 .Select(title => Descendants<TextBlock>(page).Single(x => x.Text == title))
@@ -130,6 +140,9 @@ internal static class Program
 
             Click(FindButton("Kaydet ve PDF oluştur"));
             Check("Eksik personel kaydedilmez", repository.Load().Duties.Count == 0);
+            Check("Ek Ders TextBox girisi kullaniliyor",
+                ReferenceEquals(Box("Ad soyad").Style, window.FindResource("HakedisFieldText")) &&
+                ReferenceEquals(ChoiceBox("Çıkış ili").Style, window.FindResource("HakedisFieldCombo")));
             Set("Ad soyad", "SENTETİK PERSONEL");
             Pick("Statü", PersonnelTariffGroup.GeneralCivilServant);
             Pick("Derece", 5);
@@ -148,6 +161,18 @@ internal static class Program
             }
             PickDate("Ayrılış tarihi", 9);
             PickDate("Dönüş tarihi", 20);
+            var actualDate = Descendants<DatePicker>(page).Single(x =>
+                AutomationProperties.GetName(x) == "Ayrılış tarihi");
+            actualDate.ApplyTemplate();
+            actualDate.UpdateLayout();
+            var dateBox = actualDate.Template.FindName("PART_TextBox", actualDate) as System.Windows.Controls.Primitives.DatePickerTextBox;
+            if (dateBox is not null) dateBox.ApplyTemplate();
+            var dateHint = dateBox?.Template.FindName("DateHint", dateBox) as TextBlock;
+            Check("Ek Ders koyu takvim stili uygulanmis",
+                ReferenceEquals(actualDate.Style, window.FindResource("HakedisDatePicker")) &&
+                dateBox is not null);
+            Check("Dolu tarihte yer tutucu ust uste binmez",
+                dateHint is not null && dateHint.Visibility == Visibility.Collapsed);
             Pick("Memuriyet mahalli değerlendirmesi", DutyStationAssessment.Outside);
             Check("Gecici gorevde ek inceleme zorunlulugu yok", !Descendants<TextBox>(page)
                 .Any(x => AutomationProperties.GetName(x) == "İnceleyen beyanı / kayıt referansı"));
