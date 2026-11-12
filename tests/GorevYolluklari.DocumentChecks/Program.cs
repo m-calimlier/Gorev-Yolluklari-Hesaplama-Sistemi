@@ -53,6 +53,15 @@ Test("Hesaplama PDF'si ikinci toplam veya inceleme beyanı istemez", ()=>{
     Require(!calculated.Document!.IsOfficialPaymentDocument &&
         calculated.Document.GrossTry == 850m && calculated.Document.NetTry == 850m);
 });
+Test("Hesaplama çıktısında unvan ve kurum isteğe bağlıdır", ()=>{
+    var req = Temporary() with {
+        PersonnelTitle = "", Institution = "",
+        AssignmentAndStationReviewed = false, EntitlementAndAmountsReviewed = false,
+        IndependentGrossTry = 0m, IndependentNetTry = 0m
+    };
+    Require(DraftDocumentService.CreateCalculationCopy(req).MayPrintDraft);
+    Require(!DraftDocumentService.Create(req).MayPrintDraft);
+});
 Test("Hesaplama PDF'si negatif veya kuruş altı gideri kabul etmez", ()=>{
     var req=Temporary() with { Lines=new[]{Daily(-1m)}, IndependentGrossTry=0m, IndependentNetTry=0m };
     Require(!DraftDocumentService.CreateCalculationCopy(req).MayPrintDraft);
