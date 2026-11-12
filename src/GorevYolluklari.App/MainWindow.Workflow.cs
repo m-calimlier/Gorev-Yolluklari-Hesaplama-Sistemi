@@ -179,14 +179,12 @@ public partial class MainWindow
         _personChanged = false;
         if (duty.Kind == DraftKind.PermanentDuty)
         {
-            _permanentStep = PermanentStep.Assignment;
             if (reviewPdf)
             {
                 var preview = Service.Preview(_formPerson, _form);
                 if (preview.Amount is not null)
                 {
                     _permanentPreview = preview;
-                    _permanentStep = PermanentStep.Result;
                     _permanentExpensesOpen = true;
                 }
             }
@@ -224,7 +222,7 @@ public partial class MainWindow
             picker.SelectedItem = oldChoice;
             restoring = false;
         };
-        var fields = new UniformGrid { Columns = 2 };
+        var fields = new UniformGrid { Columns = _form?.Kind == DraftKind.PermanentDuty ? 1 : 2 };
         card.Children.Add(fields);
         var identity = new StackPanel();
         var tariff = new StackPanel();
@@ -276,8 +274,6 @@ public partial class MainWindow
     private void SaveCurrent()
     {
         if (Navigation.SelectedIndex != 1 || _form is null) Save();
-        else if (_form.Kind == DraftKind.PermanentDuty && _permanentStep == PermanentStep.Person) SaveEntryPerson();
-        else if (_form.Kind == DraftKind.PermanentDuty && _permanentStep == PermanentStep.Assignment) PreviewPermanent();
         else if (PersonIsReady) SaveEntry();
         else SaveEntryPerson();
     }
