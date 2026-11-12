@@ -249,6 +249,12 @@ public partial class MainWindow : Window
             BuildPermanentBoard(d);
             return;
         }
+        if (d.Kind == DraftKind.TemporaryDuty && d.QuickTemporaryEnabled)
+        {
+            BuildQuickTemporaryBoard(d);
+            return;
+        }
+        // Yalnız eski kayıtlar için önceki seyahat takvimi görünümü.
         var (person, task, result) = BuildThreeCardWorkspace("2 · Görev ve Güzergâh");
         person.Children.Add(Text("Personeli seçin veya yeni kişi oluşturun. Kayıtlı kişiyi tekrar yazmanız gerekmez.", 12));
         BuildEntryPersonnel(person);
@@ -354,6 +360,19 @@ public partial class MainWindow : Window
 
     private void PreviewTemporary()
     {
+        if (_form is { QuickTemporaryEnabled: true } quick)
+        {
+            SetQuickTemporaryDefaults(quick);
+            CheckFormIssues(DutyIssues(quick, _formPerson!, includeExpenses: false));
+            var calculation = Service.PreviewForCalculation(_formPerson!, quick);
+            if (calculation.Amount is null)
+                CheckFormIssues([("QuickWorkDays", calculation.Explanation)]);
+            _temporaryPreview = calculation;
+            ShowPage();
+            FocusResultCard();
+            Status.Text = "Kısa geçici görev hesabı hazır. PDF oluşturabilirsiniz.";
+            return;
+        }
         if (!PersonIsReady) SaveEntryPerson();
         if (!PersonIsReady) throw new InvalidOperationException("Kişi bilgilerini tamamlayın.");
         var duty = Duty();
