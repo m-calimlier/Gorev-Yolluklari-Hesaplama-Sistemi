@@ -164,8 +164,9 @@ try
     };
     var simulation = new TravelWorkflowService(tariffPath, constants);
     person.Grade = 5;
-    duty.Snapshot = simulation.Preview(person, duty);
-    Check("Sabitler gecici motor sonucuna uygulanir", duty.Snapshot.Amount == 450m && duty.Snapshot.DailyRate == 900m);
+    duty.Snapshot = simulation.PreviewForCalculation(person, duty);
+    Check("Sabitler gecici motor sonucuna uygulanir", duty.Snapshot.Amount == 450m &&
+        duty.Snapshot.DailyRate == 900m);
     Check("Simulasyon kendi surumuyle guncel", simulation.IsCurrent(person, duty) && !service.IsCurrent(person, duty));
     Check("Simulasyon kaydinda PDF kapali", !simulation.PrepareDraft(person, duty).MayPrintDraft);
     var permanentDuty = DutyRecord.CreateDemo(person.Id);
