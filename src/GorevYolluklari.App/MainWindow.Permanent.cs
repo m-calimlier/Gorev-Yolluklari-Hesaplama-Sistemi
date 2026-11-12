@@ -41,13 +41,16 @@ public partial class MainWindow
         board.Children.Add(personHolder);
         board.Children.Add(assignmentHolder);
         board.Children.Add(resultHolder);
-        Page.Children.Add(new ScrollViewer
+        var boardScroll = new ScrollViewer
         {
             Content = board,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
             CanContentScroll = false
-        });
+        };
+        boardScroll.SizeChanged += (_, _) =>
+            board.MinWidth = Math.Max(1050, boardScroll.ViewportWidth);
+        Page.Children.Add(boardScroll);
 
         var person = Card("1 · Kişi", personHolder);
         person.Children.Add(Text("Personeli seçin veya bilgilerini girip kaydedin.", 12));
