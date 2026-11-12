@@ -14,7 +14,6 @@ namespace GorevYolluklari.App;
 public partial class MainWindow
 {
     private TextBlock? _expenseSummary;
-    private TextBlock? _expenseReviewStatus;
 
     private static string ExpenseKey(ExpenseEntry entry, string property) => $"Gider/{entry.LineId}/{property}";
 
@@ -160,21 +159,6 @@ public partial class MainWindow
         if (existing is null) append(row);
         else ShowPage();
         Status.Text = $"{Money(amount)} gündelik giderlere aktarıldı.";
-    }
-
-    private static bool TryExpenseTotals(DutyRecord duty, out decimal gross, out decimal net)
-    {
-        try
-        {
-            gross = duty.Expenses.Sum(row => row.Amount);
-            net = gross - duty.Advance;
-            return true;
-        }
-        catch (OverflowException)
-        {
-            gross = net = 0m;
-            return false;
-        }
     }
 
     private static string ComputePaymentSummary(DutyRecord duty)
