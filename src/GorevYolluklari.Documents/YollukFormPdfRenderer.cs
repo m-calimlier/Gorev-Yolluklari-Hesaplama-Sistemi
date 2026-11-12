@@ -300,13 +300,13 @@ internal static class YollukFormPdfRenderer
     {
         var y=TableRowY(rowIndex);
         for(int i=0;i<totals.Length;i++)
-        {
             Rect(g,c[i],y,c[i+1]-c[i],28,Faint,Stroke);
-            if(i==0)
-                Txt(g,"GENEL TOPLAM",7.3,true,c[i]+4,y+9,160,13);
-            else if(!string.IsNullOrWhiteSpace(totals[i]))
+        // Örnek 27/28 tablosu gibi sol başlık ilk sütunlara yayılsın.
+        Txt(g,"G E N E L  T O P L A M  (TL)",7.6,true,
+            c[0]+7,y+9,c[5]-c[0]-15,14);
+        for(int i=5;i<totals.Length;i++)
+            if(!string.IsNullOrWhiteSpace(totals[i]))
                 Txt(g,totals[i],7.4,true,c[i]+2,y+8,c[i+1]-c[i]-4,14,Ink,right:true);
-        }
     }
     private static void Rect(XGraphics g,double x,double y,double w,double h,XColor fill,XColor? border=null)
     {
