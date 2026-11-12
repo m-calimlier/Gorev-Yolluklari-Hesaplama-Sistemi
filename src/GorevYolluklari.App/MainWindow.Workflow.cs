@@ -448,8 +448,13 @@ public partial class MainWindow
             foreach (var row in selected.Expenses)
                 document.Children.Add(Text($"{row.Description} · {Money(row.Amount)}"));
         }
-        if (review.Document is { } draft)
-            document.Children.Add(Text($"Brüt {Money(draft.GrossTry)} · Avans {Money(draft.AdvanceTry)} · Net {Money(draft.NetTry)}"));
+        if (selected.Expenses.Count > 0)
+        {
+            var payment = Text(ComputePaymentSummary(selected), 16);
+            payment.Foreground = (Brush)FindResource("Gold");
+            document.Children.Add(payment);
+            document.Children.Add(Text("2026 damga vergisi dahildir. Tutar bilgilendirme amaçlıdır; PDF hâlen kontrol taslağıdır.", 12));
+        }
         var actions = new WrapPanel();
         Page.Children.Add(actions);
         Button(actions, "Sil", () => DeleteDuty(selected));
