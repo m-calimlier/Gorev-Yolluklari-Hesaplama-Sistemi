@@ -77,6 +77,9 @@ public sealed class DutyRecord
     public bool SpouseTransfer { get; set; }
     public int FamilyCount { get; set; }
     public decimal Kilometers { get; set; }
+    // Dokuz alanlı sürekli görev hesaplamasında tek kişi için taşıt bedeli.
+    // Eski JSON dosyalarında alan yoksa null olur; kayıt uyumluluğu korunur.
+    public decimal? TravelFarePerPerson { get; set; }
     public string DistanceEvidence { get; set; } = "";
     public bool AnnualPeriodReviewed { get; set; }
     public bool PriorDaysReviewed { get; set; }
