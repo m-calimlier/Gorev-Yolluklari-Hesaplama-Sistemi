@@ -28,11 +28,13 @@ public partial class MainWindow
 
     private void AddRoute(Panel left, Panel right, DutyRecord duty)
     {
-        AddPlace(left, "Çıkış", duty.Origin, place => RouteChanged(duty, true, place));
-        AddPlace(right, "Varış", duty.Destination, place => RouteChanged(duty, false, place));
+        AddPlace(left, "Çıkış", duty.Origin, place => RouteChanged(duty, true, place),
+            duty.Kind == DraftKind.PermanentDuty);
+        AddPlace(right, "Varış", duty.Destination, place => RouteChanged(duty, false, place),
+            duty.Kind == DraftKind.PermanentDuty);
     }
 
-    private void AddPlace(Panel parent, string label, string stored, Action<string> changed)
+    private void AddPlace(Panel parent, string label, string stored, Action<string> changed, bool permanent)
     {
         var selected = ParsePlace(stored);
         var province = new ComboBox { ItemsSource = ProvinceCatalog.Value, DisplayMemberPath = nameof(Province.Name), SelectedValuePath = nameof(Province.Name),
@@ -45,9 +47,11 @@ public partial class MainWindow
         AutomationProperties.SetName(district, label + " ilçesi");
         parent.Children.Add(new Label { Content = Heading(label + " ili"), Target = province,
             Style = (Style)FindResource("HakedisFieldLabel") });
+        CiteLastLabel(parent, label + " ili", permanent ? "M45" : "M14");
         parent.Children.Add(province);
         parent.Children.Add(new Label { Content = Heading(label + " ilçesi"), Target = district,
             Style = (Style)FindResource("HakedisFieldLabel") });
+        CiteLastLabel(parent, label + " ilçesi", permanent ? "M45" : "M14");
         parent.Children.Add(district);
         RegisterIssue(label == "Çıkış" ? "Origin" : "Destination", district, parent);
         var previous = Text(selected is null && !string.IsNullOrWhiteSpace(stored) ? "Kayıtlı yer: " + stored : "", 12);
