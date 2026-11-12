@@ -21,14 +21,16 @@ public partial class MainWindow
             SelectedDateFormat = DatePickerFormat.Short,
             Language = System.Windows.Markup.XmlLanguage.GetLanguage("tr-TR"),
             Margin = new(0, 0, 8, 5),
-            MinHeight = 35
+            MinHeight = 37,
+            Style = (Style)FindResource("HakedisDatePicker")
         };
         AutomationProperties.SetName(picker, label);
         picker.Loaded += (_, _) =>
         {
             if (picker.Template.FindName("PART_TextBox", picker) is DatePickerTextBox box) box.IsReadOnly = true;
         };
-        parent.Children.Add(new Label { Content = Heading(label), Target = picker });
+        parent.Children.Add(new Label { Content = Heading(label), Target = picker,
+            Style = (Style)FindResource("HakedisFieldLabel") });
         parent.Children.Add(picker);
         RegisterIssue(property, picker, parent);
 
