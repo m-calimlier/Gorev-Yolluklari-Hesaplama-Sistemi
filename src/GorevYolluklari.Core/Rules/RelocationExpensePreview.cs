@@ -3,7 +3,8 @@ namespace GorevYolluklari.Core.Rules;
 /// <summary>
 /// 6245 m.45 a/b/c formülünün ön hesap modülü. Aile ve kilometre hak sahipliği
 /// önceden incelenmiş olmalıdır. Yol ücreti ve seyahat gündelikleri bu tutara dahil değildir.
-/// Eşin aynı yerler arasında memur olarak atanması gibi özel hâller otomatik hesaplanmaz.
+/// Aynı eski/yeni mahallerde atanan ikinci memur eşin m.45(c) değişken unsuru yarı hesaplanır.
+/// Bu seçim belge/hak sahipliği onayı değildir.
 /// </summary>
 public static class RelocationExpensePreview
 {
@@ -29,15 +30,15 @@ public static class RelocationExpensePreview
             return new(DraftStatus.NeedsReview, "Hak sahipliği, aile durumu ve kaynaklı mesafe kontrol edilmelidir.", null, basis, tariffReference, distanceEvidenceReference);
         if (station == DutyStationAssessment.Inside)
             return new(DraftStatus.NotEligibleByLocation, "Yer değişikliği için farklı memuriyet mahalli doğrulanmadı.", 0m, basis, tariffReference, distanceEvidenceReference);
-        if (jointCivilServantSpouseTransfer)
-            return new(DraftStatus.NeedsReview, "m.45 eşin nakli istisnası: c bendi için ayrı değerlendirme zorunludur.", null, basis, tariffReference, distanceEvidenceReference);
-
         decimal selfFixed = rules.Self(dailyRate);
         decimal familyFixed = rules.Family(dailyRate, approvedFamilyMemberCount);
         decimal distanceCost = rules.Distance(dailyRate, approvedKilometers);
+        if (jointCivilServantSpouseTransfer) distanceCost /= 2m;
         decimal raw = selfFixed + familyFixed + distanceCost;
         return new(DraftStatus.Preliminary,
-            $"m.45: {rules.SelfDays}x + {Math.Min(approvedFamilyMemberCount, rules.MaximumFamily) * rules.FamilyDays}x aile ({rules.MaximumFamily * rules.FamilyDays}x tavan) + %{rules.KilometerPercent} x {approvedKilometers} km. Seyahat ücretleri dahil değil.",
+            $"m.45: {rules.SelfDays}x + {Math.Min(approvedFamilyMemberCount, rules.MaximumFamily) * rules.FamilyDays}x aile ({rules.MaximumFamily * rules.FamilyDays}x tavan) + %{rules.KilometerPercent} x {approvedKilometers} km" +
+            (jointCivilServantSpouseTransfer ? " (ikinci memur eş için değişken unsur %50)" : "") +
+            ". Seyahat ücretleri dahil değil.",
             raw, basis, tariffReference, distanceEvidenceReference);
     }
 }
