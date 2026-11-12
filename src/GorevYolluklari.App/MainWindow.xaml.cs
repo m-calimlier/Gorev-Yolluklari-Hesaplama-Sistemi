@@ -239,11 +239,14 @@ public partial class MainWindow : Window
         var pair = new UniformGrid { Columns = 2 }; c.Children.Add(pair); var left = new StackPanel(); var right = new StackPanel(); pair.Children.Add(left); pair.Children.Add(right);
         AddRoute(left, right, d);
         Expander? multiDayReview = null;
+        FrameworkElement? multiDayCard = null;
         void RefreshMultiDayReview()
         {
             if (multiDayReview is null) return;
             var multiDay = d.Departure != default && d.Return.Date > d.Departure.Date;
             multiDayReview.Visibility = multiDay ? Visibility.Visible : Visibility.Collapsed;
+            if (multiDayCard is not null)
+                multiDayCard.Visibility = multiDay ? Visibility.Visible : Visibility.Collapsed;
         }
         if (kind == DraftKind.TemporaryDuty)
         {
@@ -280,6 +283,7 @@ public partial class MainWindow : Window
         {
             var travel = new StackPanel();
             var timelineCard = Card("4 · Seyahat ve hak günleri", Dependent(first.Right));
+            multiDayCard = timelineCard.Parent as FrameworkElement;
             timelineCard.Children.Add(new Expander { Header = Heading("Seyahat takvimi · m.43 aday süreleri"), Foreground = (Brush)FindResource("Gold"), Content = travel, Margin = new(0, 8, 0, 14) });
             travel.Children.Add(Text("Gidiş hareketi ve dönüş varışı üstteki ayrılış/dönüş saatleridir. Aşağıdaki saatleri gerçek belgelerden girin; boş değer varsayılmaz."));
             DateField(travel, "Gidiş varışı", d, nameof(d.OutboundArrival));
