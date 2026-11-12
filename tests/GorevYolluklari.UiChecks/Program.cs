@@ -189,24 +189,29 @@ internal static class Program
 
             Go(1);
             SelectTab(1);
-            Check("Surekli gorev uc karti var",
-                Descendants<TextBlock>(page).Any(x => x.Text == "1 · Kişi") &&
-                Descendants<TextBlock>(page).Any(x => x.Text == "2 · Atama Ve Güzergâh") &&
+            Check("Sürekli görev dokuz alanlı üç kart",
+                Descendants<TextBlock>(page).Any(x => x.Text == "1 · Tarife Ve Aile") &&
+                Descendants<TextBlock>(page).Any(x => x.Text == "2 · Eski Ve Yeni Görev Yeri") &&
                 Descendants<TextBlock>(page).Any(x => x.Text == "3 · Sonuç"));
             window.Width = 1700; window.Height = 900; window.UpdateLayout();
-            var firstTitle = Descendants<TextBlock>(page).Single(x => x.Text == "1 · Kişi");
-            var secondTitle = Descendants<TextBlock>(page).Single(x => x.Text == "2 · Atama Ve Güzergâh");
+            var firstTitle = Descendants<TextBlock>(page).Single(x => x.Text == "1 · Tarife Ve Aile");
+            var secondTitle = Descendants<TextBlock>(page).Single(x => x.Text == "2 · Eski Ve Yeni Görev Yeri");
             var thirdTitle = Descendants<TextBlock>(page).Single(x => x.Text == "3 · Sonuç");
             var p1 = firstTitle.TranslatePoint(new Point(), page);
             var p2 = secondTitle.TranslatePoint(new Point(), page);
             var p3 = thirdTitle.TranslatePoint(new Point(), page);
             Check("Uc kart gercekten yanyana", p2.X > p1.X + 150 && p3.X > p2.X + 150 &&
                 Math.Abs(p1.Y - p2.Y) < 30 && Math.Abs(p2.Y - p3.Y) < 30);
-            Check("Surekli gorevde belge kaniti zorunlu degil",
+            Check("Sürekli görevde gereksiz personel/onay alanı yok",
                 !Descendants<TextBox>(page).Any(x =>
-                    AutomationProperties.GetName(x) == "İnceleyen beyanı / kayıt referansı" ||
-                    AutomationProperties.GetName(x) == "KGM / mesafe kanıtı"));
-            Capture("Surekli_Uc_Kart_Sade", 1700, 900);
+                    AutomationProperties.GetName(x) == "Ad soyad" ||
+                    AutomationProperties.GetName(x) == "Unvan" ||
+                    AutomationProperties.GetName(x) == "KGM / mesafe kanıtı" ||
+                    AutomationProperties.GetName(x) == "Atama / işlem tarihi") &&
+                !Descendants<CheckBox>(page).Any());
+            Check("Bütçe dönemi gösterilir", Descendants<TextBlock>(page)
+                .Any(x => x.Text.Contains("2026 (01 Ocak")));
+            Capture("Surekli_Dokuz_Alan", 1700, 900);
             window.Width = 1024; window.Height = 768; window.UpdateLayout();
             var boardScroll = Descendants<ScrollViewer>(page)
                 .First(x => x.HorizontalScrollBarVisibility == ScrollBarVisibility.Visible);
@@ -216,27 +221,35 @@ internal static class Program
             window.UpdateLayout();
             Check("Yatay kaydirma cubugu hareket ediyor", boardScroll.HorizontalOffset > 0);
             window.Width = 1700; window.Height = 900; window.UpdateLayout();
-            var people = ChoiceBox("Personel seçimi");
-            people.SelectedIndex = 1;
-            window.UpdateLayout();
-            Click(FindButton("Kişiyi kaydet"));
+            Pick("Aylık Kadro Derecesi", 5);
+            ChoiceBox("Ek Gösterge Grubu").SelectedValue = 0;
+            Pick("Y.D.M. Değişken Unsuru", false);
+            Set("Aile Ferdi Sayısı (kendiniz hariç)", "1");
             SelectPlace("Çıkış", "ADANA", "ALADAĞ");
             SelectPlace("Varış", "ADANA", "CEYHAN");
-            Descendants<DatePicker>(page).Single(x => AutomationProperties.GetName(x) == "Atama / işlem tarihi")
-                .SelectedDate = new DateTime(2026, 6, 15);
-            Pick("Memuriyet mahalli değerlendirmesi", DutyStationAssessment.Outside);
-            Set("Hak sahibi aile ferdi sayısı (personel hariç)", "1");
-            Set("Kaynaklı kilometre", "84");
-            Click(FindButton("Sonucu hesapla"));
-            Check("Surekli hesap sonucu ucuncu kartta", Descendants<TextBlock>(page)
-                .Any(x => x.Text == "29.070,00 TL"));
-            Check("Elle gider aktarmak gerekmiyor", !Descendants<Button>(page)
-                .Any(x => Equals(x.Content, "Yer değiştirmeyi giderlere aktar")));
+            Set("Mesafe (km)", "84");
+            Set("Taşıt Ücreti (1 kişi için TL, varsa)", "250");
+            Click(FindButton("Hesapla"));
+            Check("Sürekli hesap toplamı 31.270 TL", Descendants<TextBlock>(page)
+                .Any(x => x.Text == "31.270,00 TL"));
+            Check("Sürekli yer değiştirme bileşeni doğru", Descendants<TextBlock>(page)
+                .Any(x => x.Text.Contains("29.070,00 TL")));
+            Check("Fazladan gider ve belge kartı yok", !Descendants<Button>(page)
+                .Any(x => Equals(x.Content, "Yer değiştirmeyi giderlere aktar") ||
+                          Equals(x.Content, "Kişiyi kaydet")));
             Click(FindButton("Kaydet ve PDF oluştur"));
             var permanent = repository.Load().Duties.Single(x => x.Kind == DraftKind.PermanentDuty);
-            Check("Surekli yer degistirme gideri otomatik", permanent.Expenses.Count == 1 &&
-                permanent.Expenses[0].Kind == DraftLineKind.Relocation &&
-                permanent.Expenses[0].Amount == 29070m);
+            var lines = permanent.Expenses;
+            Check("9 alan otomatik gider satirlarina aktarildi",
+                lines.Count == 5 &&
+                lines.Single(x => x.Kind == DraftLineKind.Relocation).Amount == 29070m &&
+                lines.Single(x => x.Kind == DraftLineKind.DailyAllowance).Amount == 850m &&
+                lines.Single(x => x.Kind == DraftLineKind.FamilyDaily).Amount == 850m &&
+                lines.Single(x => x.Kind == DraftLineKind.TicketOrTravel).Amount == 250m &&
+                lines.Single(x => x.Kind == DraftLineKind.FamilyTravel).Amount == 250m);
+            Check("Bilet alani ve gizli atama kodu dogru",
+                permanent.TravelFarePerPerson == 250m &&
+                permanent.Departure.Year == 2026 && permanent.Station == DutyStationAssessment.Outside);
             Check("Surekli PDF olusturuldu", Directory.GetFiles(PortablePaths.Outputs, "*.pdf").Length == 2 &&
                 FindButton("PDF").IsEnabled);
             Check("Onay beyanı uydurulmadi", !permanent.AmountsReviewed &&
