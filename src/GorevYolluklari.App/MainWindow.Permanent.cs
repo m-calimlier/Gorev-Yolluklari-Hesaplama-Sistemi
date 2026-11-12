@@ -107,6 +107,50 @@ public partial class MainWindow
             Card("3 · Sonuç", holders[2]));
     }
 
+    private (StackPanel Left, StackPanel Right) BuildTwoCardInputWorkspace(string leftTitle, string rightTitle)
+    {
+        var grid = new Grid { MinWidth = 770 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.15, GridUnitType.Star) });
+        var left = new Grid();
+        var right = new Grid();
+        System.Windows.Controls.Grid.SetColumn(right, 2);
+        grid.Children.Add(left);
+        grid.Children.Add(right);
+        var scroll = new ScrollViewer
+        {
+            Content = grid, HorizontalScrollBarVisibility = ScrollBarVisibility.Visible,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            CanContentScroll = false
+        };
+        scroll.SetBinding(FrameworkElement.WidthProperty,
+            new Binding(nameof(ScrollViewer.ViewportWidth)) { Source = PageScroll });
+        scroll.SizeChanged += (_, _) => grid.MinWidth = Math.Max(770, scroll.ViewportWidth);
+        scroll.PreviewMouseWheel += (_, e) =>
+        {
+            if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
+                scroll.ScrollToHorizontalOffset(scroll.HorizontalOffset - e.Delta);
+            else
+                PageScroll.ScrollToVerticalOffset(PageScroll.VerticalOffset - e.Delta);
+            e.Handled = true;
+        };
+        var nav = new WrapPanel { Margin = new(0, 0, 0, 7) };
+        var first = new Button { Content = "1 · Tarife", Style = (Style)FindResource("HakedisSecondaryAction") };
+        var second = new Button { Content = "2 · Görev", Style = (Style)FindResource("HakedisSecondaryAction") };
+        first.Click += (_, _) => scroll.ScrollToLeftEnd();
+        second.Click += (_, _) => scroll.ScrollToRightEnd();
+        nav.Children.Add(first);
+        nav.Children.Add(second);
+        void RefreshNav() => nav.Visibility = scroll.ScrollableWidth > 8 ? Visibility.Visible : Visibility.Collapsed;
+        scroll.ScrollChanged += (_, _) => RefreshNav();
+        scroll.Loaded += (_, _) => RefreshNav();
+        Page.Children.Add(nav);
+        Page.Children.Add(scroll);
+        _entryBoardScroll = scroll;
+        return (Card(leftTitle, left), Card(rightTitle, right));
+    }
+
     private void FocusResultCard()
     {
         if (_entryBoardScroll is null) return;
@@ -146,8 +190,8 @@ public partial class MainWindow
     {
         SetPermanentCalculationDefaults(duty);
         var person = _formPerson!;
-        var (tariff, route, result) = BuildThreeCardWorkspace(
-            "2 · Eski ve Yeni Görev Yeri", "1 · Tarife ve Aile");
+        var (tariff, route) = BuildTwoCardInputWorkspace(
+            "1 · Tarife ve Aile", "2 · Eski ve Yeni Görev Yeri");
 
         tariff.Children.Add(Text("2026 genel memur/hizmetli tarifesi. Yalnız hesap için gerekli değerleri seçin.", 12));
         tariff.Children.Add(new Label
@@ -220,24 +264,7 @@ public partial class MainWindow
         LegalField(route, "Taşıt Ücreti (1 kişi için TL, varsa)", duty,
             nameof(duty.TravelFarePerPerson), "M27", "M44");
 
-        result.Children.Add(new Border
-        {
-            Style = (Style)FindResource("HakedisInfoCard"),
-            Child = new TextBlock
-            {
-                Text = "9 hesap bilgisiyle yolluğu hesaplayın. Tutar ve PDF program tarafından oluşturulur.",
-                Foreground = (Brush)FindResource("HakedisTextBrush"),
-                TextWrapping = TextWrapping.Wrap
-            }
-        });
-        _permanentResultHint = Text("Bilgileri doldurup Hesapla düğmesine basın.", 12);
-        _permanentResultHint.Style = (Style)FindResource("HakedisCardSubtitle");
-        result.Children.Add(_permanentResultHint);
-        _permanentCalculatedArea = new StackPanel();
-        result.Children.Add(_permanentCalculatedArea);
-        BuildPermanentResult(duty, (StackPanel)_permanentCalculatedArea);
-        Button(result, "Hesapla", PreviewPermanent);
-        Button(result, "Kaydet ve PDF oluştur", SaveAndMakePdf);
+        Button(route, "Hesapla", PreviewPermanent);
     }
 
     private void MoveToPermanentAssignment()
@@ -263,20 +290,7 @@ public partial class MainWindow
         }
     }
 
-    private void PreviewPermanent()
-    {
-        var duty = Duty();
-        SetPermanentCalculationDefaults(duty);
-        // Hesapla yalnızca önizler; PDF/Kaydet seçilene kadar kişi kaydı oluşturulmaz.
-        CheckFormIssues(DutyIssues(duty, _formPerson!, includeExpenses: false));
-        var preview = Service.PreviewForCalculation(_formPerson!, duty);
-        if (preview.Amount is null)
-            CheckFormIssues([("Departure", preview.Explanation)]);
-        _permanentPreview = preview;
-        ShowPage();
-        FocusResultCard();
-        Status.Text = "Yer değiştirme hesabı hazır. Sağdaki Sonuç kartından PDF oluşturabilirsiniz.";
-    }
+    private void PreviewPermanent() => CalculateToResults();
 
     private void BuildPermanentResult(DutyRecord duty, StackPanel result)
     {
