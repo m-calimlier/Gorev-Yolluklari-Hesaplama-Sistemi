@@ -36,14 +36,18 @@ public partial class MainWindow
     {
         var selected = ParsePlace(stored);
         var province = new ComboBox { ItemsSource = ProvinceCatalog.Value, DisplayMemberPath = nameof(Province.Name), SelectedValuePath = nameof(Province.Name),
-            SelectedItem = ProvinceCatalog.Value.FirstOrDefault(p => p.Name == selected?.Province) };
+            SelectedItem = ProvinceCatalog.Value.FirstOrDefault(p => p.Name == selected?.Province),
+            Style = (Style)FindResource("HakedisFieldCombo") };
         var district = new ComboBox { ItemsSource = (province.SelectedItem as Province)?.Districts,
-            SelectedItem = selected?.District, IsEnabled = province.SelectedItem is not null };
+            SelectedItem = selected?.District, IsEnabled = province.SelectedItem is not null,
+            Style = (Style)FindResource("HakedisFieldCombo") };
         AutomationProperties.SetName(province, label + " ili");
         AutomationProperties.SetName(district, label + " ilçesi");
-        parent.Children.Add(new Label { Content = Heading(label + " ili"), Target = province });
+        parent.Children.Add(new Label { Content = Heading(label + " ili"), Target = province,
+            Style = (Style)FindResource("HakedisFieldLabel") });
         parent.Children.Add(province);
-        parent.Children.Add(new Label { Content = Heading(label + " ilçesi"), Target = district });
+        parent.Children.Add(new Label { Content = Heading(label + " ilçesi"), Target = district,
+            Style = (Style)FindResource("HakedisFieldLabel") });
         parent.Children.Add(district);
         RegisterIssue(label == "Çıkış" ? "Origin" : "Destination", district, parent);
         var previous = Text(selected is null && !string.IsNullOrWhiteSpace(stored) ? "Kayıtlı yer: " + stored : "", 12);
