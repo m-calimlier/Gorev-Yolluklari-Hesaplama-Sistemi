@@ -46,6 +46,22 @@
    </DataTrigger>
   </Style.Triggers>
  </Style>
+ <Style x:Key="SecondaryAction" TargetType="Button">
+  <Setter Property="Background" Value="#233955"/>
+  <Setter Property="Foreground" Value="#E8EFFA"/>
+  <Setter Property="BorderBrush" Value="#4C6885"/>
+  <Setter Property="BorderThickness" Value="1"/>
+  <Setter Property="Padding" Value="11,7"/>
+  <Setter Property="MinHeight" Value="35"/>
+  <Setter Property="FontWeight" Value="SemiBold"/>
+  <Setter Property="Cursor" Value="Hand"/>
+  <Setter Property="Margin" Value="0,4,8,4"/>
+  <Style.Triggers>
+   <Trigger Property="IsMouseOver" Value="True">
+    <Setter Property="Background" Value="#375476"/>
+   </Trigger>
+  </Style.Triggers>
+ </Style>
  <Style x:Key="DutyTabs" TargetType="TabControl">
   <Setter Property="HorizontalAlignment" Value="Left"/>
   <Setter Property="SnapsToDevicePixels" Value="True"/>
@@ -53,8 +69,9 @@
    <Setter.Value>
     <ControlTemplate TargetType="TabControl">
      <Border Background="Transparent" Padding="3,4,3,7" SnapsToDevicePixels="True">
-      <TabPanel IsItemsHost="True" KeyboardNavigation.TabNavigation="Once"
-                VerticalAlignment="Center" HorizontalAlignment="Left"/>
+      <StackPanel Orientation="Horizontal" IsItemsHost="True"
+                  VerticalAlignment="Center" HorizontalAlignment="Left"
+                  KeyboardNavigation.TabNavigation="Once" ClipToBounds="False"/>
      </Border>
     </ControlTemplate>
    </Setter.Value>
@@ -71,8 +88,8 @@
    <Setter.Value>
     <ControlTemplate TargetType="TabItem">
      <Border x:Name="TabTile" Background="{StaticResource Card}" BorderBrush="#35546F"
-             BorderThickness="1" CornerRadius="8" Padding="18,11" MinHeight="44"
-             SnapsToDevicePixels="True">
+             BorderThickness="1" CornerRadius="9" Padding="18,11" MinHeight="44"
+             Margin="0,2,0,2" SnapsToDevicePixels="True">
       <ContentPresenter ContentSource="Header" RecognizesAccessKey="True"
                         VerticalAlignment="Center" HorizontalAlignment="Center"/>
      </Border>
@@ -101,6 +118,43 @@
   <Setter Property="FontSize" Value="12"/>
   <Setter Property="FontWeight" Value="SemiBold"/>
   <Setter Property="Padding" Value="0,9,0,4"/>
+ </Style>
+ <Style x:Key="YollukDatePickerText" TargetType="{x:Type DatePickerTextBox}">
+  <Setter Property="Foreground" Value="#F0F6FC"/>
+  <Setter Property="Background" Value="{StaticResource InputSurface}"/>
+  <Setter Property="BorderBrush" Value="{StaticResource InputOutline}"/>
+  <Setter Property="BorderThickness" Value="1"/>
+  <Setter Property="Padding" Value="9,5"/>
+  <Setter Property="VerticalContentAlignment" Value="Center"/>
+  <Setter Property="MinHeight" Value="35"/>
+  <Setter Property="Template">
+   <Setter.Value>
+    <ControlTemplate TargetType="{x:Type DatePickerTextBox}">
+     <Border x:Name="DateFrame" Background="{TemplateBinding Background}"
+             BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+             CornerRadius="6">
+      <Grid>
+       <ScrollViewer x:Name="PART_ContentHost" Margin="10,5,4,5"
+                     VerticalAlignment="Center"/>
+       <TextBlock x:Name="DateHint" Text="Tarih seçin" Foreground="#AABFD4"
+                  Margin="10,0,4,0" VerticalAlignment="Center"
+                  IsHitTestVisible="False" Visibility="Collapsed"/>
+      </Grid>
+     </Border>
+     <ControlTemplate.Triggers>
+      <Trigger Property="Text" Value="">
+       <Setter TargetName="DateHint" Property="Visibility" Value="Visible"/>
+      </Trigger>
+      <Trigger Property="IsKeyboardFocused" Value="True">
+       <Setter TargetName="DateFrame" Property="BorderBrush" Value="{StaticResource Gold}"/>
+      </Trigger>
+      <Trigger Property="IsEnabled" Value="False">
+       <Setter TargetName="DateFrame" Property="Opacity" Value="0.48"/>
+      </Trigger>
+     </ControlTemplate.Triggers>
+    </ControlTemplate>
+   </Setter.Value>
+  </Setter>
  </Style>
  <Style TargetType="TextBox">
   <Setter Property="Padding" Value="9,5"/>
