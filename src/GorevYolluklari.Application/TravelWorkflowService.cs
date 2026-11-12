@@ -162,6 +162,15 @@ public sealed class TravelWorkflowService(string tariffPath, CalculationConstant
                 return new(DraftDecisionStatus.Inconsistent,
                     "Hesaplanan gündelik/yer değiştirme tutarı gider satırıyla eşleşmiyor. Kaydı yeniden hesaplayın.", null);
         }
+        if (d.Kind == DraftKind.TemporaryDuty && d.Departure.Date != d.Return.Date &&
+            d.Snapshot.Components?.FirstOrDefault(x => x.Label == "Konaklama") is { Amount: var lodging })
+        {
+            var expectedLodging = decimal.Round(lodging, 2, MidpointRounding.AwayFromZero);
+            var actualLodging = d.Expenses.Where(x => x.Kind == DraftLineKind.Accommodation).Sum(x => x.Amount);
+            if (actualLodging != expectedLodging)
+                return new(DraftDecisionStatus.Inconsistent,
+                    "Konaklama toplamı gün hesabıyla uyuşmuyor. Kaydı yeniden hesaplayın.", null);
+        }
         return DraftDocumentService.CreateCalculationCopy(new(d.Kind, d.DocumentNumber,
             p.FullName, p.Title, p.Institution, d.Origin, d.Destination,
             DateOnly.FromDateTime(d.Departure),
