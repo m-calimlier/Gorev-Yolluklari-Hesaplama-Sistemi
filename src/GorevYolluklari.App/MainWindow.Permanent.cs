@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
 using GorevYolluklari.Core.Documents;
 using GorevYolluklari.Core.Records;
@@ -22,43 +24,61 @@ public partial class MainWindow
         _permanentResultHint = null;
     }
 
-    // Üç kart aynı sayfada kalır. Sayfa daraldığında kartlar sıkışmak yerine
-    // içeride yatay kaydırılır; uygulamanın lacivert-altın teması aynen kullanılır.
-    private void BuildPermanentBoard(DutyRecord duty)
+    // Tek bir üç kartlı düzen, iki görev türünde de kullanılır.
+    // Dış sayfa yalnız dikey; kartların kaydırması yalnız yataydır.
+    private (StackPanel Person, StackPanel Task, StackPanel Result) BuildThreeCardWorkspace(string taskTitle)
     {
-        var board = new Grid { MinWidth = 1050 };
+        var board = new Grid { MinWidth = 1140 };
         board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
-        board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.08, GridUnitType.Star) });
         board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
-        board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        board.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.08, GridUnitType.Star) });
 
-        var personHolder = new Grid();
-        var assignmentHolder = new Grid();
-        var resultHolder = new Grid();
-        System.Windows.Controls.Grid.SetColumn(personHolder, 0);
-        System.Windows.Controls.Grid.SetColumn(assignmentHolder, 2);
-        System.Windows.Controls.Grid.SetColumn(resultHolder, 4);
-        board.Children.Add(personHolder);
-        board.Children.Add(assignmentHolder);
-        board.Children.Add(resultHolder);
+        var holders = Enumerable.Range(0, 3).Select(_ => new Grid()).ToArray();
+        for (var i = 0; i < holders.Length; i++)
+        {
+            System.Windows.Controls.Grid.SetColumn(holders[i], i * 2);
+            board.Children.Add(holders[i]);
+        }
+
         var boardScroll = new ScrollViewer
         {
             Content = board,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Visible,
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            CanContentScroll = false
+            CanContentScroll = false,
+            HorizontalAlignment = HorizontalAlignment.Left
         };
+        // StackPanel kendi içeriğini sonsuz genişlikte ölçtüğünden scrollbar daha önce
+        // gerçek bir viewport alamıyordu. Dış viewport genişliğine sabitle.
+        boardScroll.SetBinding(FrameworkElement.WidthProperty,
+            new Binding(nameof(FrameworkElement.ActualWidth)) { Source = PageScroll });
         boardScroll.SizeChanged += (_, _) =>
-            board.MinWidth = Math.Max(1050, boardScroll.ViewportWidth);
-        Page.Children.Add(boardScroll);
+            board.MinWidth = Math.Max(1140, boardScroll.ViewportWidth);
 
-        var person = Card("1 · Kişi", personHolder);
+        boardScroll.PreviewMouseWheel += (_, e) =>
+        {
+            if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
+                boardScroll.ScrollToHorizontalOffset(boardScroll.HorizontalOffset - e.Delta);
+            else
+                PageScroll.ScrollToVerticalOffset(PageScroll.VerticalOffset - e.Delta);
+            e.Handled = true;
+        };
+        Page.Children.Add(boardScroll);
+        return (
+            Card("1 · Kişi", holders[0]),
+            Card(taskTitle, holders[1]),
+            Card("3 · Sonuç", holders[2]));
+    }
+
+    private void BuildPermanentBoard(DutyRecord duty)
+    {
+        var (person, assignment, result) = BuildThreeCardWorkspace("2 · Atama ve Güzergâh");
         person.Children.Add(Text("Personeli seçin veya bilgilerini girip kaydedin.", 12));
         BuildEntryPersonnel(person);
         Button(person, "Vazgeç", CancelEntry).HorizontalAlignment = HorizontalAlignment.Left;
 
-        var assignment = Card("2 · Atama ve Güzergâh", assignmentHolder);
         var guarded = Dependent(assignment);
         guarded.Children.Add(Text("Kayıt kodu otomatik oluşturulur.", 12));
         var origin = new StackPanel();
@@ -79,7 +99,6 @@ public partial class MainWindow
 
         Button(guarded, "Sonucu hesapla", PreviewPermanent);
 
-        var result = Card("3 · Sonuç", resultHolder);
         _permanentResultHint = Text(PersonIsReady
             ? "Atama ve güzergâh bilgilerini tamamlayıp Sonucu hesapla düğmesine basın."
             : "Önce sol karttaki kişiyi kaydedin; ardından atama bilgilerini doldurun.", 12);
