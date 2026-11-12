@@ -167,7 +167,7 @@ public partial class MainWindow
         ShowPage();
     }
 
-    private void OpenEntry(DutyRecord duty, bool reviewPdf = false)
+    private void OpenEntry(DutyRecord duty)
     {
         if ((_formChanged || _personChanged) && _dialog("Açık formdaki değişiklikler bırakılsın mı?", "Görev formu", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
             return;
@@ -179,18 +179,6 @@ public partial class MainWindow
         _formPersonBaseline = JsonSerializer.Serialize(_formPerson);
         _formChanged = false;
         _personChanged = false;
-        if (duty.Kind == DraftKind.PermanentDuty)
-        {
-            if (reviewPdf)
-            {
-                var preview = Service.Preview(_formPerson, _form);
-                if (preview.Amount is not null)
-                {
-                    _permanentPreview = preview;
-                    _permanentExpensesOpen = true;
-                }
-            }
-        }
         if (Navigation.SelectedIndex == 1) ShowPage();
         else Navigation.SelectedIndex = 1;
     }
