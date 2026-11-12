@@ -55,8 +55,6 @@ public partial class MainWindow
     private IEnumerable<(string, string)> PersonIssues(PersonnelRecord person)
     {
         if (string.IsNullOrWhiteSpace(person.FullName)) yield return ("FullName", "Ad soyad girin.");
-        if (string.IsNullOrWhiteSpace(person.Title)) yield return ("Title", "Unvan girin.");
-        if (string.IsNullOrWhiteSpace(person.Institution)) yield return ("Institution", "Kurum girin.");
         if (person.Group == PersonnelTariffGroup.Unknown) yield return ("Group", "Statü seçin.");
         if (person.Grade is null or < 1 or > 15) yield return ("Grade", "1–15 arasında derece seçin.");
         if (person.Indicator is null or < 0) yield return ("Indicator", "Ek göstergeyi girin. Ek gösterge yoksa 0 yazın.");
