@@ -74,11 +74,12 @@
    <Setter Property="Background" Value="{StaticResource HakedisPrimaryBrush}"/>
    <Setter Property="Foreground" Value="#09253F"/>
    <Setter Property="MinHeight" Value="39"/>
+   <Setter Property="BorderBrush" Value="#CBA951"/>
    <Setter Property="Padding" Value="14,8"/>
    <Setter Property="Template">
      <Setter.Value><ControlTemplate TargetType="Button">
        <Border x:Name="Face" Background="{TemplateBinding Background}"
-               CornerRadius="8" BorderBrush="#CBA951" BorderThickness="1"
+               CornerRadius="8" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
                Padding="{TemplateBinding Padding}">
          <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
        </Border>
@@ -99,6 +100,7 @@
  <Style x:Key="HakedisSecondaryAction" TargetType="Button" BasedOn="{StaticResource HakedisPrimaryAction}">
    <Setter Property="Background" Value="{StaticResource HakedisInputBrush}"/>
    <Setter Property="Foreground" Value="{StaticResource HakedisTextBrush}"/>
+   <Setter Property="BorderBrush" Value="#456F85"/>
  </Style>
  <Style x:Key="HakedisInfoCard" TargetType="Border">
    <Setter Property="Background" Value="#102F49"/>
