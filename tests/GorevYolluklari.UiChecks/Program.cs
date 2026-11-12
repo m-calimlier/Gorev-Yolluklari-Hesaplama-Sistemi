@@ -211,7 +211,7 @@ internal static class Program
             Check("Guzergah degisince ilgili incelemeler yenilenir", navigation.SelectedIndex == 1 && repository.Load().Duties.Single().Origin == saved.Origin);
             Review("Görev oluru incelendi");
             Review("Mahalliyet incelendi");
-            var details = Descendants<Expander>(page).Single(x => Equals(x.Header, "Bağımsız Tutarlar"));
+            var details = Descendants<Expander>(page).Single(x => Equals(x.Header, "PDF İçin Son Tutar Kontrolü"));
             details.IsExpanded = true;
             window.UpdateLayout();
             Click(FindButton("Gündeliği giderlere aktar"));
@@ -221,11 +221,11 @@ internal static class Program
             window.UpdateLayout();
             Check("Gundelik tek satira aktarilir, tutar elle girilmez", Box("Gider tutarı (TL)").IsReadOnly &&
                 Box("Gider tutarı (TL)").Text.Contains("566,67") && Box("Gider dayanağı").Text == "SENTETİK OLUR");
-            details = Descendants<Expander>(page).Single(x => Equals(x.Header, "Bağımsız Tutarlar"));
+            details = Descendants<Expander>(page).Single(x => Equals(x.Header, "PDF İçin Son Tutar Kontrolü"));
             details.IsExpanded = true;
             window.UpdateLayout();
             Check("Gider ozeti otomatik hesaplanir", Descendants<TextBlock>(page).Any(t =>
-                t.Text == "Brüt 566,67 TL  ·  Avans 0,00 TL  ·  Net 566,67 TL"));
+                t.Text == "Brüt 566,67 TL  ·  Damga vergisi 4,30 TL  ·  Avans 0,00 TL  ·  Tahmini net 562,37 TL"));
             Set("Bağımsız brüt TL", "566,67");
             Set("Bağımsız net TL", "565,00");
             Check("Bagimsiz net uyusmazligi otomatik gosterilir", Descendants<TextBlock>(details)
@@ -244,14 +244,20 @@ internal static class Program
             Go(1);
             SelectTab(1);
             Check("Surekli kayit ayri turde", Tabs().SelectedIndex == 2);
-            Check("Surekli gorev once kisi adiminda", !Descendants<DatePicker>(page).Any());
+            Check("Surekli gorevde uc kart ayni anda gorunur",
+                Descendants<TextBlock>(page).Any(t => t.Text == "1 · Kişi") &&
+                Descendants<TextBlock>(page).Any(t => t.Text == "2 · Atama Ve Güzergâh") &&
+                Descendants<TextBlock>(page).Any(t => t.Text == "3 · Sonuç") &&
+                Descendants<DatePicker>(page).Any());
             var people = Descendants<ComboBox>(page).Single(c => AutomationProperties.GetName(c) == "Personel seçimi");
             people.SelectedIndex = 1;
             window.UpdateLayout();
             Check("Kayitli kisi diger sekmede tekrar kullanilir", Box("Ad soyad").Text == "SENTETİK PERSONEL");
             Click(FindButton("Kişiyi kaydet"));
             Check("Surekli panelde mesafe var", Box("Kaynaklı kilometre").IsEnabled);
-            Check("Atama adiminda gider alanlari gizli", !Descendants<Button>(page).Any(b => Equals(b.Content, "Personel taşıt gideri ekle")));
+            Check("Hesap oncesi sonuc yer tutucu gorunur",
+                Descendants<TextBlock>(page).Any(t => t.Text.Contains("Sonucu hesapla düğmesine basın")) &&
+                !Descendants<Button>(page).Any(b => Equals(b.Content, "Personel taşıt gideri ekle")));
             SelectPlace("Çıkış", "ADANA", "ALADAĞ");
             SelectPlace("Varış", "ADANA", "CEYHAN");
             Check("KGM otomatik mesafeyi ve dayanagi doldurur", Box("Kaynaklı kilometre").Text == "84" &&
@@ -284,8 +290,9 @@ internal static class Program
             if (dialogs.Count != priorDialogCount)
                 throw new InvalidOperationException("Sürekli görev ön hesabı açılamadı: " + dialogs.Last());
             var optional = Descendants<Expander>(page).Single(e => Equals(e.Header, "Taşıt, Avans Ve PDF"));
-            Check("Sonuc adimi istege bagli alanlari kapali acar", !optional.IsExpanded &&
-                Descendants<TextBlock>(page).Any(t => t.Text == "29.070,00 TL") && repository.Load().Duties.Count == 1);
+            Check("Sonuc ucuncu kartta ve gider alani varsayilan kapali", !optional.IsExpanded &&
+                Descendants<TextBlock>(page).Any(t => t.Text == "29.070,00 TL") &&
+                repository.Load().Duties.Count == 1);
             optional.IsExpanded = true;
             window.UpdateLayout();
             Check("Surekli gorevde personel ve aile tasit girisi var", FindButton("Personel taşıt gideri ekle") is not null &&
