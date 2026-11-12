@@ -234,9 +234,7 @@ public partial class MainWindow : Window
         var first = EntryRow();
         if (!permanent) BuildEntryPersonnel(Card("1 · Personel", first.Left));
         var c = Card(permanent ? "Atama ve güzergâh" : "2 · Görev bilgileri", Dependent(permanent ? first.Left : first.Right));
-        Field(c, "Belge numarası", d, "DocumentNumber");
-        _taskStart = _editors.Last();
-        c.Children.Add(Text("Programın ürettiği kayıt kodu. Görev oluru veya atama kararının numarası kanıt bölümüne yazılır.", 12));
+        c.Children.Add(Text("Kayıt kodu program tarafından otomatik oluşturulur.", 12));
         var pair = new UniformGrid { Columns = 2 }; c.Children.Add(pair); var left = new StackPanel(); var right = new StackPanel(); pair.Children.Add(left); pair.Children.Add(right);
         AddRoute(left, right, d);
         Expander? multiDayReview = null;
@@ -270,20 +268,10 @@ public partial class MainWindow : Window
             Check(c, "Aile hak sahipliği incelendi", d, "FamilyReviewed"); Choice(c, "Eşin aynı güzergâhta memur olarak nakli",
                 new Option[] { new(false, "Yok"), new(true, "Var · ayrı inceleme") }, d, "SpouseTransfer");
         }
-        c = Card(permanent ? "Kanıt ve değerlendirme" : "3 · Kanıt ve değerlendirme", Dependent(permanent ? first.Right : first.Left));
-        c.Children.Add(Text("Belge numarası, tarih veya kurumunuzdaki kayıt referansını yazın. Kutuları incelemeyi tamamladıktan sonra işaretleyin.", 12));
-        Field(c, "Görev oluru / atama kararı referansı", d, "AssignmentEvidence");
-        c.Children.Add(Text(kind == DraftKind.PermanentDuty ? "Atama kararının tarih ve sayısı. Örnek: 15.06.2026 / AT-001." : "Görevlendirme olurunun tarih ve sayısı.", 12));
-        Field(c, "Memuriyet mahalli kanıtı", d, "StationEvidence");
-        c.Children.Add(Text("Eski ve yeni görev yerlerinin değerlendirilmesine dayanak olan kurum yazısı veya kayıt referansı.", 12));
-        Field(c, "İnceleyen beyanı / kayıt referansı", d, "Reviewer");
-        c.Children.Add(Text("Kontrolü yapan görevlinin kurum içi inceleme referansı. Örnek: İNCELEME-001.", 12));
-        Check(c, "Görev oluru incelendi", d, "AssignmentReviewed");
-        Check(c, "Mahalliyet incelendi", d, "StationReviewed");
         if (kind == DraftKind.TemporaryDuty)
         {
             var travel = new StackPanel();
-            var timelineCard = Card("4 · Seyahat ve hak günleri", Dependent(first.Right));
+            var timelineCard = Card("3 · Çok günlü görev ayrıntıları", Dependent(first.Right));
             multiDayCard = timelineCard.Parent as FrameworkElement;
             timelineCard.Children.Add(new Expander { Header = Heading("Seyahat takvimi · m.43 aday süreleri"), Foreground = (Brush)FindResource("Gold"), Content = travel, Margin = new(0, 8, 0, 14) });
             travel.Children.Add(Text("Gidiş hareketi ve dönüş varışı üstteki ayrılış/dönüş saatleridir. Aşağıdaki saatleri gerçek belgelerden girin; boş değer varsayılmaz."));
@@ -321,6 +309,8 @@ public partial class MainWindow : Window
         Button(actions, "Vazgeç", CancelEntry);
         var save = Button(actions, "Kaydet", SaveEntry);
         _dependentEntryCards.Add(save);
+        var pdf = Button(actions, "Kaydet ve PDF oluştur", SaveAndMakePdf);
+        _dependentEntryCards.Add(pdf);
         RefreshEntryAvailability();
     }
 
