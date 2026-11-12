@@ -109,6 +109,50 @@ try
     duty.Expenses[0].Amount = 600m;
     duty.Snapshot = service.PreviewForCalculation(person, duty);
     Check("Yanlis gundelik yazilirsa PDF reddedilir", !service.PrepareCalculationPdf(person, duty).MayPrintDraft);
+    var quickPerson = new PersonnelRecord
+    {
+        FullName = "AD SOYAD BELİRTİLMEDİ", Grade = 5, Indicator = 0,
+        Group = GorevYolluklari.Core.Tariffs.PersonnelTariffGroup.GeneralCivilServant
+    };
+    var quickDuty = new DutyRecord
+    {
+        Kind = DraftKind.TemporaryDuty,
+        QuickTemporaryEnabled = true, PersonnelId = quickPerson.Id,
+        DocumentNumber = "GEC-KISA-2026",
+        Origin = "GÜZERGÂH BELİRTİLMEDİ", Destination = "GÜZERGÂH BELİRTİLMEDİ",
+        Departure = new DateTime(2026, 1, 1), Return = new DateTime(2026, 1, 1),
+        QuickOutboundFare = 120m, QuickOutboundThirds = 2, QuickOutboundTravelDays = 1,
+        QuickReturnFare = 100m, QuickReturnThirds = 1, QuickReturnTravelDays = 1,
+        QuickWorkDays = 3, QuickLodgingNights = 2, QuickLodgingDailyFare = 900m,
+        QuickOtherExpenses = 50m
+    };
+    var quickPreview = service.PreviewForCalculation(quickPerson, quickDuty);
+    Check("Yeni kisa gecici 2026 servis sonucu 5470", quickPreview.Amount == 5470m &&
+        quickPreview.Components?.Count == 7);
+    var quickRows = new[]
+    {
+        ("GQ", DraftLineKind.TicketOrTravel, 120m, "6245 m.14, m.27"),
+        ("RQ", DraftLineKind.TicketOrTravel, 100m, "6245 m.14, m.27"),
+        ("TQ", DraftLineKind.DailyAllowance, 3400m, "6245 m.39, m.42, m.43"),
+        ("LQ", DraftLineKind.Accommodation, 1800m, "6245 m.33(d)"),
+        ("OQ", DraftLineKind.OtherEligible, 50m, "6245 m.14")
+    };
+    foreach (var (key, kind, amount, basis) in quickRows)
+        quickDuty.Expenses.Add(new ExpenseEntry
+        {
+            LineId = "OTO-" + key + "-" + quickDuty.Id.ToString("N"),
+            Kind = kind, Amount = amount, Description = key + " 2026 hesap", LegalBasis = basis
+        });
+    quickDuty.Snapshot = service.PreviewForCalculation(quickPerson, quickDuty);
+    var quickPdf = service.PrepareCalculationPdf(quickPerson, quickDuty);
+    Check("Kisa gecici PDF dogrudan olusur ve tarih uydurulmaz",
+        quickPdf.MayPrintDraft && quickPdf.Document is { IsQuickTemporaryCalculation: true } &&
+        quickPdf.Document.GrossTry == 5470m && !quickPdf.Document.IsOfficialPaymentDocument);
+    quickDuty.Expenses.Single(x => x.Kind == DraftLineKind.OtherEligible).Amount = 80m;
+    quickDuty.Snapshot = service.PreviewForCalculation(quickPerson, quickDuty);
+    Check("Kisa gecici kaynak disi tutar farkini reddeder",
+        !service.PrepareCalculationPdf(quickPerson, quickDuty).MayPrintDraft);
+
     var constants = new CalculationConstants
     {
         Temporary = new(MealDivisor: 4),
