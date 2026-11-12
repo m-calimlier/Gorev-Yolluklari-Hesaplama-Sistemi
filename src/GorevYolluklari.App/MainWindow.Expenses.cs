@@ -51,8 +51,8 @@ public partial class MainWindow
                     DraftLineKind.TicketOrTravel => "6245 m.27",
                     DraftLineKind.FamilyTravel => "6245 m.44",
                     DraftLineKind.Accommodation => "6245 m.33(d)",
-                    DraftLineKind.DailyAllowance => duty.Kind == DraftKind.TemporaryDuty ? "6245 m.39" : "6245 m.45",
-                    DraftLineKind.FamilyDaily => "6245 m.45",
+                    DraftLineKind.DailyAllowance => duty.Kind == DraftKind.TemporaryDuty ? "6245 m.39" : "6245 m.43",
+                    DraftLineKind.FamilyDaily => "6245 m.43, m.44",
                     _ => ""
                 }
             };
