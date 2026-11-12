@@ -32,8 +32,9 @@ public partial class MainWindow
     {
         SetQuickTemporaryDefaults(duty);
         var person = _formPerson!;
-        var (tariff, travel, result) = BuildThreeCardWorkspace(
-            "2 · Gidiş ve Dönüş", "1 · Bütçe ve Tarife");
+        var (tariff, travel, lodging) = BuildThreeCardWorkspace(
+            "2 · Gidiş ve Dönüş", "1 · Bütçe ve Tarife",
+            "3 · Görev ve Konaklama");
 
         tariff.Children.Add(Text("2026 · Yurt içi geçici görev. Genel memur/hizmetli ön hesap.", 12));
         var period = new StackPanel();
@@ -108,40 +109,16 @@ public partial class MainWindow
         LegalField(travel, "Dönüş Yol Gündelik Süresi (gün)", duty,
             nameof(duty.QuickReturnTravelDays), "M43");
 
-        result.Children.Add(Text("Görev, konaklama ve diğer uygun masraflar", 14));
-        LegalField(result, "Görev Süresi (gün)", duty, nameof(duty.QuickWorkDays), "M42");
-        LegalField(result, "Konaklama Süresi (gece)", duty,
+        lodging.Children.Add(Text("Görev, konaklama ve diğer uygun masraflar", 14));
+        LegalField(lodging, "Görev Süresi (gün)", duty, nameof(duty.QuickWorkDays), "M42");
+        LegalField(lodging, "Konaklama Süresi (gece)", duty,
             nameof(duty.QuickLodgingNights), "M33D", "H2026");
-        LegalField(result, "Günlük Konaklama Ücreti (TL)", duty,
+        LegalField(lodging, "Günlük Konaklama Ücreti (TL)", duty,
             nameof(duty.QuickLodgingDailyFare), "M33D", "H2026");
-        LegalField(result, "Diğer Masraflar Toplamı (TL)", duty,
+        LegalField(lodging, "Diğer Masraflar Toplamı (TL)", duty,
             nameof(duty.QuickOtherExpenses), "M14");
 
-        _temporaryResultHint = Text(
-            _temporaryPreview is { Amount: decimal }
-                ? "2026 gündelik, görev ve konaklama hesap dökümü:"
-                : "Derece, ek gösterge ve görev bilgilerini doldurup Hesapla'ya basın.", 12);
-        _temporaryResultHint.Style = (Style)FindResource("HakedisCardSubtitle");
-        result.Children.Add(new Border
-        {
-            Style = (Style)FindResource("HakedisInfoCard"),
-            Child = _temporaryResultHint
-        });
-        var calculated = new StackPanel();
-        _temporaryResultContent = calculated;
-        result.Children.Add(calculated);
-        if (_temporaryPreview is { Amount: decimal amount } preview)
-        {
-            calculated.Children.Add(Metric("Geçici Görev Yolluğu", Money(amount)));
-            calculated.Children.Add(Text("Tarife gündeliği: " + Money(preview.DailyRate), 12));
-            foreach (var line in preview.Components ?? [])
-                if (line.Amount > 0m)
-                    calculated.Children.Add(Text(line.Label + " · " + Money(line.Amount), 12));
-            calculated.Children.Add(Text(
-                "Ön hesapta önceki aynı görev günleri 0 kabul edilir; fiilî hak sahipliği ve belgelere kurum karar verir.", 12));
-        }
-        else calculated.Visibility = Visibility.Collapsed;
-        Button(result, "Hesapla", PreviewTemporary);
-        Button(result, "Kaydet ve PDF oluştur", SaveAndMakePdf);
+        lodging.Children.Add(Text("Bu ekranda yalnız hesap girdileri yer alır. Sonuç, Hesapla panelinde gösterilecektir.", 12));
+        Button(lodging, "Hesapla", PreviewTemporary);
     }
 }
