@@ -290,7 +290,6 @@ public partial class MainWindow : Window
         AddCalendarColumn(reviewedDays);
         Col(reviewedDays, "Konaklama sırası", nameof(ReviewedDayEntry.LodgingOrdinal), 125);
         Col(reviewedDays, "Fatura TL", nameof(ReviewedDayEntry.LodgingAmount), 110);
-        Col(reviewedDays, "Fatura kanıtı", nameof(ReviewedDayEntry.Receipt), 200);
         multiDay.Children.Add(reviewedDays);
         RegisterIssue("ReviewedDays", dayDetails, guarded);
         RefreshMultiDay();
