@@ -258,7 +258,7 @@ public sealed class TravelWorkflowService(string tariffPath, CalculationConstant
                 return new(DraftDecisionStatus.Inconsistent,
                     "Konaklama toplamı gün hesabıyla uyuşmuyor. Kaydı yeniden hesaplayın.", null);
         }
-        return DraftDocumentService.CreateCalculationCopy(new(d.Kind, d.DocumentNumber,
+        var decision = DraftDocumentService.CreateCalculationCopy(new(d.Kind, d.DocumentNumber,
             p.FullName, p.Title, p.Institution, d.Origin, d.Destination,
             DateOnly.FromDateTime(d.Departure),
             DateOnly.FromDateTime(d.Kind == DraftKind.PermanentDuty ? d.Departure : d.Return),
@@ -266,6 +266,18 @@ public sealed class TravelWorkflowService(string tariffPath, CalculationConstant
             d.AssignmentEvidence, d.StationEvidence,
             false, false, d.Expenses.Select(x => x.ToLine()).ToArray(),
             d.Advance, d.AdvanceEvidence, 0m, 0m, d.Kind == DraftKind.TemporaryDuty && d.QuickTemporaryEnabled));
+        if (!decision.MayPrintDraft || decision.Document is null) return decision;
+        // PDF, geçilmiş hesap motorunun bileşenlerini taşır. Baskı motoru
+        // gündeliği, aileyi veya YDM'yi yeniden hesaplamaz.
+        var details = new DraftPrintDetails(
+            p.Grade, p.Indicator, d.Snapshot.DailyRate, d.FamilyCount,
+            d.Kilometers, d.TravelFarePerPerson, d.SpouseTransfer,
+            d.QuickOutboundThirds, d.QuickOutboundTravelDays,
+            d.QuickReturnThirds, d.QuickReturnTravelDays,
+            d.QuickWorkDays, d.QuickLodgingNights, d.QuickLodgingDailyFare,
+            (d.Snapshot.Components ?? []).Select(x =>
+                new DraftPrintComponent(x.Label, x.Amount)).ToArray());
+        return decision with { Document = decision.Document with { PrintDetails = details } };
     }
 
 }
