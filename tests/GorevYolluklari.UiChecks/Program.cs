@@ -249,6 +249,18 @@ internal static class Program
                 Descendants<TextBlock>(page).Any(t => t.Text == "2 · Atama Ve Güzergâh") &&
                 Descendants<TextBlock>(page).Any(t => t.Text == "3 · Sonuç") &&
                 Descendants<DatePicker>(page).Any());
+            window.Width = 1700; window.Height = 900; window.UpdateLayout();
+            var firstCardTitle = Descendants<TextBlock>(page).Single(t => t.Text == "1 · Kişi");
+            var middleCardTitle = Descendants<TextBlock>(page).Single(t => t.Text == "2 · Atama Ve Güzergâh");
+            var lastCardTitle = Descendants<TextBlock>(page).Single(t => t.Text == "3 · Sonuç");
+            var firstPoint = firstCardTitle.TranslatePoint(new Point(), page);
+            var middlePoint = middleCardTitle.TranslatePoint(new Point(), page);
+            var lastPoint = lastCardTitle.TranslatePoint(new Point(), page);
+            Check("Uc kart ayni satirda soldan saga dizilir",
+                firstPoint.X + 150 < middlePoint.X && middlePoint.X + 150 < lastPoint.X &&
+                Math.Abs(firstPoint.Y - middlePoint.Y) < 30 && Math.Abs(middlePoint.Y - lastPoint.Y) < 30);
+            Capture("Surekli_Uc_Kart", 1700, 900);
+            window.Width = 1024; window.Height = 768; window.UpdateLayout();
             var people = Descendants<ComboBox>(page).Single(c => AutomationProperties.GetName(c) == "Personel seçimi");
             people.SelectedIndex = 1;
             window.UpdateLayout();
