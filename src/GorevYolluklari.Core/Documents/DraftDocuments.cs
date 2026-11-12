@@ -37,7 +37,10 @@ public sealed record DraftDocument(
     decimal GrossTry, decimal AdvanceTry, decimal NetTry)
 {
     public bool IsOfficialPaymentDocument => false;
-    public string VisibilityNotice => "KONTROL TASLAĞI - ÖDEME BELGESİ DEĞİLDİR";
+    public bool IsCalculationOutput { get; init; }
+    public string VisibilityNotice => IsCalculationOutput
+        ? "YOLLUK HESAPLAMA ÇIKTISI - RESMİ ONAY BELGESİ DEĞİLDİR"
+        : "KONTROL TASLAĞI - ÖDEME BELGESİ DEĞİLDİR";
     public string RequiredFormCode => Kind == DraftKind.TemporaryDuty ? "Örnek 27" : "Örnek 28";
 }
 
@@ -57,7 +60,17 @@ public static class DraftDocumentService
         new() { DraftLineKind.DailyAllowance, DraftLineKind.TicketOrTravel,
             DraftLineKind.FamilyDaily, DraftLineKind.FamilyTravel, DraftLineKind.Relocation };
 
-    public static DraftDecision Create(DraftDocumentRequest request)
+    public static DraftDecision Create(DraftDocumentRequest request) => CreateCore(request, requireReview: true);
+
+    /// <summary>
+    /// Kullanıcıdan aynı tutarları ikinci kez istemeyen hesaplama PDF'si üretir.
+    /// Belge/hak sahipliği incelemesi yapıldığını iddia etmez; sayısal ve
+    /// yapısal denetimleri atlamaz. Onaylanmış Örnek 27/28 belgesi değildir.
+    /// </summary>
+    public static DraftDecision CreateCalculationCopy(DraftDocumentRequest request) =>
+        CreateCore(request, requireReview: false);
+
+    private static DraftDecision CreateCore(DraftDocumentRequest request, bool requireReview)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (request.Kind is not (DraftKind.TemporaryDuty or DraftKind.PermanentDuty))
@@ -75,10 +88,10 @@ public static class DraftDocumentService
             return Refuse(DraftDecisionStatus.NeedsReview, "Bu aşama yalnız 2026 içinde başlayıp biten yurt içi görevleri destekler.");
         if (request.TariffReference != "BUT-002:2026:I-B" || !ValidText(request.RuleVersion, 80))
             return Refuse(DraftDecisionStatus.NeedsReview, "2026 I-B tarife kaynağı/kural sürümü doğrulanmadı.");
-        if (!request.AssignmentAndStationReviewed || !ValidText(request.AssignmentEvidence, 150) ||
-            !ValidText(request.StationEvidence, 150))
+        if (requireReview && (!request.AssignmentAndStationReviewed || !ValidText(request.AssignmentEvidence, 150) ||
+            !ValidText(request.StationEvidence, 150)))
             return Refuse(DraftDecisionStatus.NeedsReview, "Görev oluru ve memuriyet mahalli kanıtı incelemesi eksik.");
-        if (!request.EntitlementAndAmountsReviewed)
+        if (requireReview && !request.EntitlementAndAmountsReviewed)
             return Refuse(DraftDecisionStatus.NeedsReview, "Hak sahipliği ve satır tutarları bağımsız olarak incelenmemiş.");
         if (request.Lines is null || request.Lines.Count is < 1 or > 40)
             return Refuse(DraftDecisionStatus.NeedsInput, "Taslak 1-40 arasında gider satırı içermelidir.");
@@ -89,7 +102,8 @@ public static class DraftDocumentService
         {
             if (line is null || !ValidText(line.LineId, 40) || !lineIds.Add(line.LineId) ||
                 !allowed.Contains(line.Kind) || !ValidText(line.Description, 150) ||
-                !ValidText(line.EvidenceReference, 150) || !ValidText(line.LegalReference, 100))
+                (requireReview && !ValidText(line.EvidenceReference, 150)) ||
+                !OptionalText(line.EvidenceReference, 150) || !ValidText(line.LegalReference, 100))
                 return Refuse(DraftDecisionStatus.NeedsInput, "Gider satırında eksik/tekrarlı kimlik, uygunsuz tür veya belge/mevzuat referansı var.");
             if (!IsMoney(line.AmountTry) || line.AmountTry <= 0m)
                 return Refuse(DraftDecisionStatus.NeedsInput, "Gider satırları pozitif, tam kuruş ve TL cinsinden olmalıdır.");
@@ -99,10 +113,10 @@ public static class DraftDocumentService
                 return Refuse(DraftDecisionStatus.NeedsReview, "Tutar üst denetim sınırını aştı; manuel inceleme gerekiyor.");
         }
         if (!IsMoney(request.AdvanceTry) || request.AdvanceTry < 0m || request.AdvanceTry > gross ||
-            (request.AdvanceTry > 0m && !ValidText(request.AdvanceEvidence, 150)))
+            (requireReview && request.AdvanceTry > 0m && !ValidText(request.AdvanceEvidence, 150)))
             return Refuse(DraftDecisionStatus.NeedsReview, "Avans tutarı veya avans kanıtı geçersiz.");
-        if (!IsMoney(request.IndependentGrossTry) || !IsMoney(request.IndependentNetTry) ||
-            request.IndependentGrossTry != gross || request.IndependentNetTry != gross - request.AdvanceTry)
+        if (requireReview && (!IsMoney(request.IndependentGrossTry) || !IsMoney(request.IndependentNetTry) ||
+            request.IndependentGrossTry != gross || request.IndependentNetTry != gross - request.AdvanceTry))
             return Refuse(DraftDecisionStatus.Inconsistent, "Bağımsız toplam/mahsup kontrolüyle tutarlar eşleşmedi.");
 
         // Giriş listesini kopyalayarak taslağı daha sonraki değişikliklerden koruruz.
@@ -112,8 +126,12 @@ public static class DraftDocumentService
             request.Origin.Trim(), request.Destination.Trim(), request.Begins, request.Ends,
             request.BudgetYear, request.TariffReference, request.RuleVersion.Trim(),
             request.AssignmentEvidence.Trim(), request.StationEvidence.Trim(),
-            rows, gross, request.AdvanceTry, gross - request.AdvanceTry);
-        return new(DraftDecisionStatus.DraftReady, "Yalnız kontrol TASLAĞI oluşturulabilir; resmî ödeme onayı yoktur.", document);
+            rows, gross, request.AdvanceTry, gross - request.AdvanceTry)
+            { IsCalculationOutput = !requireReview };
+        return new(DraftDecisionStatus.DraftReady,
+            requireReview ? "Yalnız kontrol TASLAĞI oluşturulabilir; resmî ödeme onayı yoktur."
+                : "Hesaplama çıktısı hazır; bu belge resmî onay veya hak sahipliği doğrulaması değildir.",
+            document);
     }
 
     public static DraftBatchDecision CreateSummary(IReadOnlyList<DraftDocument> drafts)
@@ -144,6 +162,8 @@ public static class DraftDocumentService
         decimal.Round(value, 2, MidpointRounding.AwayFromZero) == value;
     private static bool ValidText(string? text, int max) => !string.IsNullOrWhiteSpace(text) &&
         text.Trim().Length <= max && !text.Any(char.IsControl);
+    private static bool OptionalText(string? text, int max) =>
+        text is null || (text.Trim().Length <= max && !text.Any(char.IsControl));
     private static DraftDecision Refuse(DraftDecisionStatus status, string reason) => new(status, reason, null);
 }
 
