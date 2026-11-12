@@ -61,10 +61,12 @@ public partial class MainWindow
         card.Children.Add(layout);
         foreach (var field in fields)
         {
-            var box = new TextBox { Text = field.Value.ToString(Tr), IsReadOnly = true };
+            var box = new TextBox { Text = field.Value.ToString(Tr), IsReadOnly = true,
+                Style = (Style)FindResource("HakedisFieldText") };
             AutomationProperties.SetName(box, field.Label);
             var group = new StackPanel();
-            group.Children.Add(new Label { Content = new TextBlock { Text = Heading(field.Label) }, Target = box });
+            group.Children.Add(new Label { Content = new TextBlock { Text = Heading(field.Label) }, Target = box,
+                Style = (Style)FindResource("HakedisFieldLabel") });
             group.Children.Add(box);
             layout.Children.Add(group);
             editors.Add(box);
@@ -72,10 +74,13 @@ public partial class MainWindow
 
         var actions = new WrapPanel();
         card.Children.Add(actions);
-        var edit = new Button { Content = "Düzenle" };
+        var edit = new Button { Content = "Düzenle",
+            Style = (Style)FindResource("HakedisPrimaryAction") };
         AutomationProperties.SetName(edit, title + " sabitlerini düzenle");
-        var cancel = new Button { Content = "Vazgeç", Visibility = Visibility.Collapsed };
-        var resetButton = new Button { Content = "Kaynak değerlerini yükle", Visibility = Visibility.Collapsed };
+        var cancel = new Button { Content = "Vazgeç", Visibility = Visibility.Collapsed,
+            Style = (Style)FindResource("HakedisSecondaryAction") };
+        var resetButton = new Button { Content = "Kaynak değerlerini yükle", Visibility = Visibility.Collapsed,
+            Style = (Style)FindResource("HakedisSecondaryAction") };
         actions.Children.Add(edit);
         actions.Children.Add(cancel);
         actions.Children.Add(resetButton);
