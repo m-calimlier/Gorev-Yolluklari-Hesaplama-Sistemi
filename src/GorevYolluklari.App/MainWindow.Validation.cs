@@ -151,7 +151,7 @@ public partial class MainWindow
     {
         OpenEntry(duty, reviewPdf: true);
         if (_form?.Id != duty.Id || Navigation.SelectedIndex != 1) return;
-        if (duty.Kind == DraftKind.PermanentDuty && _permanentStep != PermanentStep.Result)
+        if (duty.Kind == DraftKind.PermanentDuty && _permanentPreview is null)
             CheckFormIssues(DutyIssues(_form, _formPerson!, includeExpenses: false));
         else
             CheckFormIssues(DocumentIssues(duty, reason));
