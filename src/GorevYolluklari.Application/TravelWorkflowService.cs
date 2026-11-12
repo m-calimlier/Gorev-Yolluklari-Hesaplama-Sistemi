@@ -163,6 +163,28 @@ public sealed class TravelWorkflowService(string tariffPath, CalculationConstant
                 return new(DraftDecisionStatus.Inconsistent,
                     "Hesaplanan gündelik/yer değiştirme tutarı gider satırıyla eşleşmiyor. Kaydı yeniden hesaplayın.", null);
         }
+        if (d.Kind == DraftKind.PermanentDuty && d.Snapshot.DailyRate is decimal perDiem)
+        {
+            // 9 alanlı hesaplayıcının PDF'si ile önizlemesi birebir uyuşmalı.
+            // Eski elle eklenmiş farklı tutarlar sessizce ödeme toplamına katılmaz.
+            var fare = d.TravelFarePerPerson ?? 0m;
+            var expectedLines = new (DraftLineKind Kind, decimal Amount)[]
+            {
+                (DraftLineKind.DailyAllowance, perDiem),
+                (DraftLineKind.FamilyDaily, perDiem * d.FamilyCount),
+                (DraftLineKind.TicketOrTravel, fare),
+                (DraftLineKind.FamilyTravel, fare * d.FamilyCount)
+            };
+            foreach (var (kind, raw) in expectedLines)
+            {
+                var amount = decimal.Round(raw, 2, MidpointRounding.AwayFromZero);
+                var matches = d.Expenses.Where(x => x.Kind == kind).ToArray();
+                if ((amount == 0m && matches.Length != 0) ||
+                    (amount > 0m && (matches.Length != 1 || matches[0].Amount != amount)))
+                    return new(DraftDecisionStatus.Inconsistent,
+                        "Seyahat veya aile gideri 9 alanlı hesapla eşleşmiyor. Eski manuel gider satırlarını kontrol edin.", null);
+            }
+        }
         if (d.Kind == DraftKind.TemporaryDuty && d.Departure.Date != d.Return.Date &&
             d.Snapshot.Components?.FirstOrDefault(x => x.Label == "Konaklama") is { Amount: var lodging })
         {
