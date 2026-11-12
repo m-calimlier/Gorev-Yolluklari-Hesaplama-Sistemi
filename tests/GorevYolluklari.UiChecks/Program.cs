@@ -125,7 +125,7 @@ internal static class Program
 
             window.Width = 1700; window.Height = 900; window.UpdateLayout();
             var tempTitles = new[] { "1 · Bütçe Ve Tarife", "2 · Gidiş Ve Dönüş", "3 · Sonuç" }
-                .Select(title => Descendants<TextBlock>(page).Single(x => x.Text == title))
+                .Select(title => Descendants<TextBlock>(page).First(x => x.Text == title && x.FontSize >= 18))
                 .Select(x => x.TranslatePoint(new Point(), page)).ToArray();
             Check("Referans gecici gorev uc kart ayni satirda",
                 tempTitles[0].X + 150 < tempTitles[1].X &&
@@ -200,9 +200,9 @@ internal static class Program
                 Descendants<TextBlock>(page).Any(x => x.Text == "2 · Eski Ve Yeni Görev Yeri") &&
                 Descendants<TextBlock>(page).Any(x => x.Text == "3 · Sonuç"));
             window.Width = 1700; window.Height = 900; window.UpdateLayout();
-            var firstTitle = Descendants<TextBlock>(page).Single(x => x.Text == "1 · Tarife Ve Aile");
-            var secondTitle = Descendants<TextBlock>(page).Single(x => x.Text == "2 · Eski Ve Yeni Görev Yeri");
-            var thirdTitle = Descendants<TextBlock>(page).Single(x => x.Text == "3 · Sonuç");
+            var firstTitle = Descendants<TextBlock>(page).First(x => x.Text == "1 · Tarife Ve Aile" && x.FontSize >= 18);
+            var secondTitle = Descendants<TextBlock>(page).First(x => x.Text == "2 · Eski Ve Yeni Görev Yeri" && x.FontSize >= 18);
+            var thirdTitle = Descendants<TextBlock>(page).First(x => x.Text == "3 · Sonuç" && x.FontSize >= 18);
             var p1 = firstTitle.TranslatePoint(new Point(), page);
             var p2 = secondTitle.TranslatePoint(new Point(), page);
             var p3 = thirdTitle.TranslatePoint(new Point(), page);
