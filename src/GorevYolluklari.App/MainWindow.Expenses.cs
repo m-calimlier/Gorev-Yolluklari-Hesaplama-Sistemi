@@ -49,6 +49,9 @@ public partial class MainWindow
                 {
                     DraftLineKind.TicketOrTravel => "6245 m.27",
                     DraftLineKind.FamilyTravel => "6245 m.44",
+                    DraftLineKind.Accommodation => "6245 m.33(d)",
+                    DraftLineKind.DailyAllowance => duty.Kind == DraftKind.TemporaryDuty ? "6245 m.39" : "6245 m.45",
+                    DraftLineKind.FamilyDaily => "6245 m.45",
                     _ => ""
                 }
             };
@@ -61,34 +64,29 @@ public partial class MainWindow
         {
             Button(actions, "Gündeliği giderlere aktar", () => TransferDailyAllowance(duty, row => Append(row, true)));
             Button(actions, "Taşıt gideri ekle", () => Add(DraftLineKind.TicketOrTravel));
+            Button(actions, "Konaklama gideri ekle", () => Add(DraftLineKind.Accommodation));
         }
         else
         {
+            Button(actions, "Personel gündeliği ekle", () => Add(DraftLineKind.DailyAllowance));
             Button(actions, "Personel taşıt gideri ekle", () => Add(DraftLineKind.TicketOrTravel));
-            Button(actions, "Aile taşıt gideri ekle", () => Add(DraftLineKind.FamilyTravel));
+            if (duty.FamilyCount > 0)
+            {
+                Button(actions, "Aile gündeliği ekle", () => Add(DraftLineKind.FamilyDaily));
+                Button(actions, "Aile taşıt gideri ekle", () => Add(DraftLineKind.FamilyTravel));
+            }
         }
-        Button(actions, "Gider satırı ekle", () => Add(DraftLineKind.DailyAllowance));
 
         card.Children.Add(rows);
         foreach (var row in duty.Expenses) Append(row, false);
 
-        var transfer = new WrapPanel();
-        card.Children.Add(new Expander { Header = "Toplu Aktarım", Content = transfer, Margin = new(0, 8, 0, 12) });
-        Button(transfer, "TSV yapıştır", () => ImportRows(duty, Exchange.ParseExpenses(Clipboard.GetText()), row => Append(row, false)));
-        Button(transfer, "XLSX al", () =>
-        {
-            var file = new OpenFileDialog { Filter = "Yolluk gider şablonu (*.xlsx)|*.xlsx" };
-            if (file.ShowDialog(this) == true) ImportRows(duty, Exchange.ReadXlsx(file.FileName), row => Append(row, false));
-        });
-        Button(transfer, "XLSX ver", ExportXlsx);
-
         _expenseSummary = Text("", 16);
         _expenseSummary.Foreground = (Brush)FindResource("Gold");
-        card.Children.Add(Text("Gider Özeti", 20));
+        card.Children.Add(Text("Bildirimdeki tutarlar", 20));
         card.Children.Add(_expenseSummary);
         Button(card, "Bu toplam nasıl hesaplandı?", () => _dialog(
-            "Brüt, girdiğiniz gider satırlarının toplamıdır. Net, brütten avansın çıkarılmasıyla bulunur. " +
-            "Ön hesap ayrı gösterilir. Belgeye alınacak kalemleri dayanaklarına göre ekleyin.",
+            "Brüt, belgeli gider satırları toplamıdır. 2026 damga vergisi binde 7,59 oranıyla hesaplanır. " +
+            "Ödeme özeti tahminidir; resmî bordro için güncel mevzuat ve belge kontrolü gereklidir.",
             "Gider özeti", MessageBoxButton.OK));
 
         var advance = new StackPanel();
@@ -100,7 +98,7 @@ public partial class MainWindow
         var review = new StackPanel();
         var details = new Expander
         {
-            Header = "Bağımsız Tutarlar",
+            Header = "PDF İçin Son Tutar Kontrolü",
             Content = review,
             IsExpanded = duty.AmountsReviewed,
             Foreground = (Brush)FindResource("Gold"),
@@ -205,12 +203,25 @@ public partial class MainWindow
         }
     }
 
+    private static string ComputePaymentSummary(DutyRecord duty)
+    {
+        if (duty.Expenses.Count == 0) return "Gider ekleyin; brüt ve tahmini net burada görünecek.";
+        try
+        {
+            var totals = YollukOdemeOzeti2026.Hesapla(duty.Expenses, duty.Advance);
+            return $"Brüt {Money(totals.Brut)}  ·  Damga vergisi {Money(totals.DamgaVergisi)}" +
+                $"  ·  Avans {Money(totals.Avans)}  ·  Tahmini net {Money(totals.Net)}";
+        }
+        catch (ArgumentException)
+        {
+            return "Gider ve avans tutarlarını kontrol edin. Eksik veya geçersiz tutar var.";
+        }
+    }
+
     private void UpdateExpenseSummary(DutyRecord duty)
     {
         if (_expenseSummary is not null)
-            _expenseSummary.Text = TryExpenseTotals(duty, out var gross, out var net)
-                ? $"Brüt {Money(gross)}  ·  Avans {Money(duty.Advance)}  ·  Net {Money(net)}"
-                : "Gider toplamı hesaplanamadı. Tutarları kontrol edin.";
+            _expenseSummary.Text = ComputePaymentSummary(duty);
         if (_expenseReviewStatus is null) return;
         _expenseReviewStatus.Text = duty.AmountsReviewed ? "Belge ve tutar kontrolü tamamlandı." :
             duty.IndependentGross is null || duty.IndependentNet is null ? "PDF için iki bağımsız tutar bekleniyor." :
