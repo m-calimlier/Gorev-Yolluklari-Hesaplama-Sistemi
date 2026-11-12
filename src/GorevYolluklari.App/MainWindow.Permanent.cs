@@ -134,7 +134,8 @@ public partial class MainWindow
 
     private void PreviewPermanent()
     {
-        if (!PersonIsReady) throw new InvalidOperationException("Önce kişiyi kaydedin.");
+        if (!PersonIsReady) SaveEntryPerson();
+        if (!PersonIsReady) throw new InvalidOperationException("Kişi bilgilerini tamamlayın.");
         var duty = Duty();
         CheckFormIssues(DutyIssues(duty, _formPerson!, includeExpenses: false));
         var preview = Service.PreviewForCalculation(_formPerson!, duty);
