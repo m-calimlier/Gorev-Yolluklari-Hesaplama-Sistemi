@@ -79,8 +79,10 @@ public static class DraftDocumentService
             !DocumentIdPattern.IsMatch(request.DocumentNumber))
             return Refuse(DraftDecisionStatus.NeedsInput, "Belge numarası 4-40 karakter olmalı; yalnız A-Z, 0-9, _ ve - kullanılmalıdır.");
         if (!ValidText(request.PersonnelFullName, 100) ||
-            !ValidText(request.PersonnelTitle, 100) ||
-            !ValidText(request.Institution, 150) ||
+            (requireReview && (!ValidText(request.PersonnelTitle, 100) ||
+                               !ValidText(request.Institution, 150))) ||
+            (!requireReview && (!OptionalText(request.PersonnelTitle, 100) ||
+                                !OptionalText(request.Institution, 150))) ||
             !ValidText(request.Origin, 150) || !ValidText(request.Destination, 150))
             return Refuse(DraftDecisionStatus.NeedsInput, "Personel, unvan, kurum, çıkış ve varış bilgileri zorunludur.");
         if (request.Begins == default || request.Ends == default || request.Ends < request.Begins ||
