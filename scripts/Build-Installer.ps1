@@ -1,11 +1,11 @@
 param(
     [string]$CompilerPath,
-    [string]$Version = '0.8.0'
+    [string]$Version = '0.9.0'
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 if ($Version -notmatch '^\d+\.\d+\.\d+$') {
-    throw 'Surum uc sayili olmalidir. Ornek: 0.8.0'
+    throw 'Surum uc sayili olmalidir. Ornek: 0.9.0'
 }
 
 # Ek Ders Hakediş Sistemi: tek EXE, temiz yayin paketi ve otomatik ISCC tespiti.

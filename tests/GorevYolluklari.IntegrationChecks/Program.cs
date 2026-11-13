@@ -83,7 +83,10 @@ Check("Sürekli görev kanun dayanağı ve KGM referansı", m.LegalBasis.Contain
 Check("Sürekli görev aile 40 gündelik üst sınır", engine.PreviewRelocation(Move(familyCount: 7)).UnroundedAmount == 860m * (20m + 40m + 0.5m));
 Check("Sürekli görev aile üyesi 0", engine.PreviewRelocation(Move(familyCount: 0)).UnroundedAmount == 860m * (20m + 0.5m));
 Check("Sürekli görev km=0 hesap matematiği", engine.PreviewRelocation(Move(km: 0m)).UnroundedAmount == 860m * 40m);
-Check("Eşin aynı güzergâh nakli incelemeye", engine.PreviewRelocation(Move(spouse: true)).Status == IntegratedPreviewStatus.NeedsReview);
+var secondSpouse = engine.PreviewRelocation(Move(spouse: true));
+Check("İkinci memur eş: yalnız değişken unsur yarım",
+    secondSpouse.Status == IntegratedPreviewStatus.Preliminary &&
+    secondSpouse.UnroundedAmount == 860m * (20m + 20m + 0.25m));
 Check("Hak sahipliği teyitsizse blok", engine.PreviewRelocation(Move(eligible: false)).Status == IntegratedPreviewStatus.NeedsReview);
 Check("Aile incelemesi yoksa blok", engine.PreviewRelocation(Move(family: false)).Status == IntegratedPreviewStatus.NeedsReview);
 Check("KGM mesafe dayanağı yoksa blok", engine.PreviewRelocation(Move(evidence: " ")).Status == IntegratedPreviewStatus.NeedsReview);
